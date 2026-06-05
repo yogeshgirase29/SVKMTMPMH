@@ -1,13 +1,18 @@
 import React from 'react';
 import { Calendar, FileText, CheckCircle2, Shield, HeartPulse, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { type Language, translations } from '../utils/translations';
+
 
 interface HeroProps {
+  language: Language;
   onOpenAppointment: () => void;
   onOpenReports: () => void;
 }
 
-export const Hero: React.FC<HeroProps> = ({ onOpenAppointment, onOpenReports }) => {
+export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment, onOpenReports }) => {
+  const t = translations[language];
+
   return (
     <section 
       id="home" 
@@ -44,37 +49,37 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAppointment, onOpenReports }) 
                 color: 'var(--med-blue)',
                 padding: '6px 14px',
                 borderRadius: '9999px',
-                fontSize: '0.85rem',
+                fontSize: '0.82rem',
                 fontWeight: 700,
-                border: '1px solid rgba(2, 132, 199, 0.1)',
+                border: '1px solid rgba(2, 132, 199, 0.15)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px'
               }}>
                 <HeartPulse size={14} style={{ color: 'var(--cyan)' }} />
-                SVKM's Tapanbhai Mukeshbhai Patel Memorial Hospital
+                {t.certifiedTag}
               </span>
             </div>
 
             {/* Headline */}
             <h1 style={{
-              fontSize: '3.5rem',
+              fontSize: '3.3rem',
               color: 'var(--primary)',
               fontWeight: 800,
-              lineHeight: 1.1,
+              lineHeight: 1.15,
               letterSpacing: '-1px'
             }} className="hero-headline">
-              Advanced <span className="text-gradient">Clinical Care</span> & Scientific <span className="text-gradient">Research</span>
+              {t.heroTitleFirst} <span className="text-gradient">{t.heroTitleSecond}</span> & {t.heroTitleThird} <span className="text-gradient">{t.heroTitleFourth}</span>
             </h1>
 
             {/* Description */}
             <p style={{
-              fontSize: '1.15rem',
+              fontSize: '1.1rem',
               color: 'var(--text-secondary)',
               lineHeight: 1.6,
               maxWidth: '540px'
             }}>
-              Delivering high-quality tertiary clinical services and medical research in Shirpur. Our 1,200-bed modern campus is designed to provide comprehensive, state-of-the-art care to the community.
+              {t.heroDesc}
             </p>
 
             {/* Buttons */}
@@ -82,16 +87,16 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAppointment, onOpenReports }) 
               <button 
                 onClick={onOpenAppointment}
                 className="btn btn-primary"
-                style={{ padding: '14px 28px', gap: '8px', fontSize: '1rem' }}
+                style={{ padding: '14px 28px', gap: '8px', fontSize: '0.95rem' }}
               >
-                <Calendar size={18} /> Book Appointment
+                <Calendar size={18} /> {t.bookAppointment}
               </button>
               <button 
                 onClick={onOpenReports}
                 className="btn btn-secondary"
-                style={{ padding: '14px 28px', gap: '8px', fontSize: '1rem' }}
+                style={{ padding: '14px 28px', gap: '8px', fontSize: '0.95rem' }}
               >
-                <FileText size={18} /> View Test Reports
+                <FileText size={18} /> {t.viewReports}
               </button>
             </div>
 
@@ -104,11 +109,11 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAppointment, onOpenReports }) 
             }} className="hero-benefits">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <CheckCircle2 size={20} style={{ color: 'var(--cyan)' }} />
-                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>1,200-Bed Tertiary Campus</span>
+                <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.heroBenefitBeds}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <CheckCircle2 size={20} style={{ color: 'var(--cyan)' }} />
-                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>PMJAY Cashless Schemes</span>
+                <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.heroBenefitCashless}</span>
               </div>
             </div>
           </motion.div>
@@ -170,10 +175,10 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAppointment, onOpenReports }) 
                   position: 'absolute',
                   top: '15%',
                   left: '-15%',
-                  padding: '14px 18px',
+                  padding: '12px 16px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
+                  gap: '10px',
                   boxShadow: 'var(--shadow-lg)'
                 }}
               >
@@ -190,8 +195,8 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAppointment, onOpenReports }) 
                   <Activity size={20} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>HOSPITAL CAPACITY</div>
-                  <div style={{ fontSize: '0.92rem', fontWeight: 700 }}>1,200+ Beds Setup</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t.heroWidgetCapacity}</div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 700 }}>{t.heroWidgetBeds}</div>
                 </div>
               </motion.div>
 
@@ -204,10 +209,10 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAppointment, onOpenReports }) 
                   position: 'absolute',
                   bottom: '12%',
                   right: '-10%',
-                  padding: '14px 18px',
+                  padding: '12px 16px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
+                  gap: '10px',
                   boxShadow: 'var(--shadow-lg)'
                 }}
               >
@@ -224,8 +229,8 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAppointment, onOpenReports }) 
                   <Shield size={20} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>GOVT SCHEMES</div>
-                  <div style={{ fontSize: '0.92rem', fontWeight: 700 }}>Ayushman Bharat (PMJAY)</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{t.heroWidgetSchemes}</div>
+                  <div style={{ fontSize: '0.88rem', fontWeight: 700 }}>{t.heroWidgetPmjay}</div>
                 </div>
               </motion.div>
             </div>
@@ -242,7 +247,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAppointment, onOpenReports }) 
             text-align: center;
           }
           .hero-headline {
-            font-size: 2.6rem !important;
+            font-size: 2.3rem !important;
           }
           .hero-btns, .hero-benefits {
             justify-content: center !important;
@@ -256,7 +261,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAppointment, onOpenReports }) 
         }
         @media (max-width: 576px) {
           .hero-headline {
-            font-size: 2.15rem !important;
+            font-size: 1.95rem !important;
           }
           .glass-panel {
             padding: 10px 14px !important;

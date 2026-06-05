@@ -1,43 +1,51 @@
 import React from 'react';
 import { ClipboardList, Droplet, Microscope, ShieldCheck, FileCheck, Send, ArrowRight, ArrowDown } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { type Language, translations } from '../utils/translations';
 
-export const Workflow: React.FC = () => {
+
+interface WorkflowProps {
+  language: Language;
+}
+
+export const Workflow: React.FC<WorkflowProps> = ({ language }) => {
+  const t = translations[language];
+
   const steps = [
     {
       icon: ClipboardList,
-      title: 'Patient Registration',
-      desc: 'Book online or walk in. Quick profile setup and test configuration.',
+      title: t.step1Title,
+      desc: t.step1Desc,
       stepNum: '01'
     },
     {
       icon: Droplet,
-      title: 'Sample Collection',
-      desc: 'Quick, painless blood withdrawal or swab test by certified specialists.',
+      title: t.step2Title,
+      desc: t.step2Desc,
       stepNum: '02'
     },
     {
       icon: Microscope,
-      title: 'Lab Processing',
-      desc: 'Samples barcoded and loaded into state-of-the-art automated analysers.',
+      title: t.step3Title,
+      desc: t.step3Desc,
       stepNum: '03'
     },
     {
       icon: ShieldCheck,
-      title: 'Verification',
-      desc: 'Pathologists audit the values against strict controls.',
+      title: t.step4Title,
+      desc: t.step4Desc,
       stepNum: '04'
     },
     {
       icon: FileCheck,
-      title: 'Final Approval',
-      desc: 'Clinicians sign off on verified findings. Report is digitally generated.',
+      title: t.step5Title,
+      desc: t.step5Desc,
       stepNum: '05'
     },
     {
       icon: Send,
-      title: 'Digital Delivery',
-      desc: 'SMS notification and email dispatch with PDF download link.',
+      title: t.step6Title,
+      desc: t.step6Desc,
       stepNum: '06'
     }
   ];
@@ -55,10 +63,10 @@ export const Workflow: React.FC = () => {
       <div className="container">
         {/* Header */}
         <div className="section-header">
-          <span className="section-tag">THE PROCESS</span>
-          <h2 className="section-title">Our Smart Diagnostic Timeline</h2>
+          <span className="section-tag">{t.workflowTag}</span>
+          <h2 className="section-title">{t.workflowTitle}</h2>
           <p className="section-desc">
-            How your samples travel from collection to certified digital results. Efficiency and accuracy built into every step.
+            {t.workflowDesc}
           </p>
         </div>
 

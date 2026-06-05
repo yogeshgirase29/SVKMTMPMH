@@ -1,46 +1,54 @@
 import React from 'react';
 import { Mail, Award } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { type Language, translations } from '../utils/translations';
+
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {
   size?: number | string;
 }
 
-const Twitter = ({ size, ...props }: IconProps) => (
+const TwitterIcon = ({ size, ...props }: IconProps) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size || "1.2em"} height={size || "1.2em"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/></svg>
 );
 
-const Linkedin = ({ size, ...props }: IconProps) => (
+const LinkedinIcon = ({ size, ...props }: IconProps) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size || "1.2em"} height={size || "1.2em"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>
 );
 
-export const Doctors: React.FC = () => {
+interface DoctorsProps {
+  language: Language;
+}
+
+export const Doctors: React.FC<DoctorsProps> = ({ language }) => {
+  const t = translations[language];
+
   const doctorsData = [
     {
       name: 'Dr. Sarah Jenkins',
-      role: 'Medical Superintendent & Chief Surgeon',
-      experience: '16 Years Experience',
+      role: t.docSarahRole,
+      experience: `${language === 'en' ? '16 Years' : '१६ वर्षांचा'} ${t.docExp}`,
       image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=400',
       socials: { twitter: '#', linkedin: '#', email: 'mailto:ms@tmpmhospital.svkm.ac.in' }
     },
     {
       name: 'Dr. Robert Chen',
-      role: 'Professor & Head of Radiology',
-      experience: '14 Years Experience',
+      role: t.docRobertRole,
+      experience: `${language === 'en' ? '14 Years' : '१४ वर्षांचा'} ${t.docExp}`,
       image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=400',
       socials: { twitter: '#', linkedin: '#', email: 'mailto:radiology@tmpmhospital.svkm.ac.in' }
     },
     {
       name: 'Dr. Emily Taylor',
-      role: 'HOD of Laboratory Diagnostics',
-      experience: '12 Years Experience',
-      image: 'https://images.unsplash.com/photo-1594824813573-246434de83fb?auto=format&fit=crop&q=80&w=400',
+      role: t.docEmilyRole,
+      experience: `${language === 'en' ? '12 Years' : '१२ वर्षांचा'} ${t.docExp}`,
+      image: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=400',
       socials: { twitter: '#', linkedin: '#', email: 'mailto:pathology@tmpmhospital.svkm.ac.in' }
     },
     {
       name: 'Dr. Michael Stone',
-      role: 'Chief of ICU & Critical Care',
-      experience: '15 Years Experience',
+      role: t.docMichaelRole,
+      experience: `${language === 'en' ? '15 Years' : '१५ वर्षांचा'} ${t.docExp}`,
       image: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=400',
       socials: { twitter: '#', linkedin: '#', email: 'mailto:icu@tmpmhospital.svkm.ac.in' }
     }
@@ -58,10 +66,10 @@ export const Doctors: React.FC = () => {
       <div className="container">
         {/* Header */}
         <div className="section-header">
-          <span className="section-tag">OUR SPECIALISTS</span>
-          <h2 className="section-title">Meet Our Medical Directors & Experts</h2>
+          <span className="section-tag">{t.doctorsTag}</span>
+          <h2 className="section-title">{t.doctorsTitle}</h2>
           <p className="section-desc">
-            Consult with our NABL-certified laboratory directors and clinical practitioners for specialized health opinions.
+            {t.doctorsDesc}
           </p>
         </div>
 
@@ -132,7 +140,7 @@ export const Doctors: React.FC = () => {
                     justifyContent: 'center',
                     boxShadow: 'var(--shadow-md)'
                   }}>
-                    <Twitter size={16} />
+                    <TwitterIcon size={16} />
                   </a>
                   <a href={doc.socials.linkedin} style={{
                     background: 'rgba(255, 255, 255, 0.95)',
@@ -145,7 +153,7 @@ export const Doctors: React.FC = () => {
                     justifyContent: 'center',
                     boxShadow: 'var(--shadow-md)'
                   }}>
-                    <Linkedin size={16} />
+                    <LinkedinIcon size={16} />
                   </a>
                   <a href={doc.socials.email} style={{
                     background: 'rgba(255, 255, 255, 0.95)',

@@ -1,12 +1,17 @@
 import React from 'react';
 import { Calendar, ShieldAlert } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { type Language, translations } from '../utils/translations';
+
 
 interface CTAProps {
+  language: Language;
   onOpenAppointment: () => void;
 }
 
-export const CTA: React.FC<CTAProps> = ({ onOpenAppointment }) => {
+export const CTA: React.FC<CTAProps> = ({ language, onOpenAppointment }) => {
+  const t = translations[language];
+
   return (
     <section 
       style={{
@@ -76,7 +81,7 @@ export const CTA: React.FC<CTAProps> = ({ onOpenAppointment }) => {
             border: '1px solid rgba(255,255,255,0.1)'
           }}>
             <ShieldAlert size={14} />
-            Prioritize Preventative Health Packages
+            {t.ctaTag}
           </div>
 
           <h2 style={{
@@ -86,7 +91,7 @@ export const CTA: React.FC<CTAProps> = ({ onOpenAppointment }) => {
             maxWidth: '620px',
             lineHeight: 1.25
           }} className="cta-title">
-            Take Charge of Your Health & Wellness Today
+            {t.ctaTitle}
           </h2>
 
           <p style={{
@@ -95,7 +100,7 @@ export const CTA: React.FC<CTAProps> = ({ onOpenAppointment }) => {
             fontSize: '1.05rem',
             lineHeight: 1.6
           }}>
-            Schedule your laboratory diagnostics, radiology bookings, or routine checkups with our certified clinical experts. Receive smart, actionable reports directly on your device.
+            {t.ctaDesc}
           </p>
 
           <button
@@ -110,7 +115,7 @@ export const CTA: React.FC<CTAProps> = ({ onOpenAppointment }) => {
               border: '1px solid var(--white)'
             }}
           >
-            <Calendar size={18} /> Schedule Appointment Now
+            <Calendar size={18} /> {t.ctaBtn}
           </button>
         </motion.div>
       </div>

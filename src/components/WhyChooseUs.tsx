@@ -1,38 +1,46 @@
 import React from 'react';
 import { Target, Zap, Cpu, Award, FileCheck, Heart } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { type Language, translations } from '../utils/translations';
 
-export const WhyChooseUs: React.FC = () => {
+
+interface WhyChooseUsProps {
+  language: Language;
+}
+
+export const WhyChooseUs: React.FC<WhyChooseUsProps> = ({ language }) => {
+  const t = translations[language];
+
   const features = [
     {
       icon: Target,
-      title: 'SVKM Legacy of Trust',
-      desc: 'Backed by the Shri Vile Parle Kelavani Mandal, a premier trust with a history of clinical and academic excellence.'
+      title: t.whyTrustTitle,
+      desc: t.whyTrustDesc
     },
     {
       icon: Zap,
-      title: 'Regional Accessibility',
-      desc: 'Located in Shirpur, serving Nandurbar, Dhule, Jalgaon, and neighboring regions, eliminating metro travels.'
+      title: t.whyAccessTitle,
+      desc: t.whyAccessDesc
     },
     {
       icon: Cpu,
-      title: 'Advanced Medical Infrastructure',
-      desc: 'Built with international standards, featuring advanced Siemens & GE diagnostic imaging and multi-slice CT/MRI.'
+      title: t.whyInfraTitle,
+      desc: t.whyInfraDesc
     },
     {
       icon: Award,
-      title: 'Integrated Teaching Hospital',
-      desc: 'Facilitates a highly skilled panel of professors, resident doctors, and clinical researchers working in unison.'
+      title: t.whyTeachingTitle,
+      desc: t.whyTeachingDesc
     },
     {
       icon: FileCheck,
-      title: 'PMJAY Cashless Schemes',
-      desc: 'Empanelled under Ayushman Bharat (PMJAY) and Mahatma Jyotirao Phule Jan Arogya Yojana (MJPJAY).'
+      title: t.whyPmjayTitle,
+      desc: t.whyPmjayDesc
     },
     {
       icon: Heart,
-      title: 'Patient-Centered ICU Care',
-      desc: 'Equipped with North Maharashtra\'s largest ICU ward, offering high-fidelity critical care monitoring 24/7.'
+      title: t.whyIcuTitle,
+      desc: t.whyIcuDesc
     }
   ];
 
@@ -48,10 +56,10 @@ export const WhyChooseUs: React.FC = () => {
       <div className="container">
         {/* Header */}
         <div className="section-header">
-          <span className="section-tag">WHY AURA CLINIC</span>
-          <h2 className="section-title">Setting Standards in Diagnostic & Clinical Excellence</h2>
+          <span className="section-tag">{t.whyTag}</span>
+          <h2 className="section-title">{t.whyTitle}</h2>
           <p className="section-desc">
-            We merge cutting-edge laboratory systems with clinical dedication to offer a patient experience that prioritizes safety and accuracy.
+            {t.whyDesc}
           </p>
         </div>
 

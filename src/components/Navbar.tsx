@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Stethoscope, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { type Language, translations } from '../utils/translations';
+
 
 interface NavbarProps {
+  language: Language;
+  setLanguage: (lang: Language) => void;
   onOpenAppointment: () => void;
   onOpenReports: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenAppointment, onOpenReports }) => {
+export const Navbar: React.FC<NavbarProps> = ({ language, setLanguage, onOpenAppointment, onOpenReports }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+
+  const t = translations[language];
 
   useEffect(() => {
     const handleScroll = () => {
@@ -24,13 +30,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAppointment, onOpenReports
   }, []);
 
   const navLinks = [
-    { name: 'Home', href: '#home' },
-    { name: 'Services', href: '#services' },
-    { name: 'Why Us', href: '#why-us' },
-    { name: 'Workflow', href: '#workflow' },
-    { name: 'Doctors', href: '#doctors' },
-    { name: 'Reviews', href: '#testimonials' },
-    { name: 'Contact', href: '#contact' },
+    { name: t.navHome, href: '#home' },
+    { name: t.navServices, href: '#services' },
+    { name: t.navWhyUs, href: '#why-us' },
+    { name: t.navWorkflow, href: '#workflow' },
+    { name: t.navDoctors, href: '#doctors' },
+    { name: t.navReviews, href: '#testimonials' },
+    { name: t.navContact, href: '#contact' },
   ];
 
   const handleLinkClick = (href: string) => {
@@ -47,6 +53,51 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAppointment, onOpenReports
     }
   };
 
+  const LanguageSelector = () => (
+    <div style={{ 
+      display: 'inline-flex', 
+      border: '1px solid rgba(2, 132, 199, 0.18)', 
+      borderRadius: '8px', 
+      overflow: 'hidden',
+      background: 'rgba(255,255,255,0.5)',
+      boxShadow: 'var(--shadow-sm)',
+      padding: '2px'
+    }}>
+      <button 
+        onClick={() => setLanguage('en')} 
+        style={{ 
+          padding: '4px 10px', 
+          fontSize: '0.78rem', 
+          border: 'none', 
+          cursor: 'pointer', 
+          borderRadius: '6px',
+          background: language === 'en' ? 'var(--gradient-primary)' : 'transparent',
+          color: language === 'en' ? 'white' : 'var(--text-secondary)',
+          fontWeight: 700,
+          transition: 'all var(--transition-fast)'
+        }}
+      >
+        EN
+      </button>
+      <button 
+        onClick={() => setLanguage('mr')} 
+        style={{ 
+          padding: '4px 10px', 
+          fontSize: '0.78rem', 
+          border: 'none', 
+          cursor: 'pointer', 
+          borderRadius: '6px',
+          background: language === 'mr' ? 'var(--gradient-primary)' : 'transparent',
+          color: language === 'mr' ? 'white' : 'var(--text-secondary)',
+          fontWeight: 700,
+          transition: 'all var(--transition-fast)'
+        }}
+      >
+        मराठी
+      </button>
+    </div>
+  );
+
   return (
     <>
       <nav 
@@ -59,7 +110,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAppointment, onOpenReports
           zIndex: 900,
           transition: 'all var(--transition-normal)',
           padding: scrolled ? '12px 0' : '20px 0',
-          backgroundColor: scrolled ? 'rgba(255, 255, 255, 0.85)' : 'rgba(255, 255, 255, 0.45)',
+          backgroundColor: scrolled ? 'rgba(255, 255, 255, 0.88)' : 'rgba(255, 255, 255, 0.45)',
           borderBottom: scrolled ? '1px solid rgba(2, 132, 199, 0.08)' : '1px solid rgba(255, 255, 255, 0.3)'
         }}
       >
@@ -68,7 +119,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAppointment, onOpenReports
           <a 
             href="#home" 
             onClick={(e) => { e.preventDefault(); handleLinkClick('#home'); }}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '1.4rem' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '1.25rem' }}
           >
             <div style={{
               background: 'var(--gradient-primary)',
@@ -79,28 +130,25 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAppointment, onOpenReports
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <Stethoscope size={24} />
+              <Stethoscope size={22} />
             </div>
-            <span style={{ letterSpacing: '-0.5px' }}>
-              SVKM | <span style={{ color: 'var(--med-blue)', fontWeight: 600 }}>TMPM HOSPITAL</span>
+            <span style={{ letterSpacing: '-0.5px', display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
+              <span style={{ fontSize: '1.05rem', fontWeight: 800 }}>SVKM</span>
+              <span style={{ color: 'var(--med-blue)', fontWeight: 600, fontSize: '0.8rem', marginTop: '2px' }}>TMPM HOSPITAL</span>
             </span>
           </a>
 
-          {/* Desktop Menu */}
-          <div style={{ display: 'none' }} className="desktop-menu-wrapper">
-            {/* Will show via inline styles / media query injected styling */}
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }} className="nav-actions-desktop">
-            <div className="nav-links-container" style={{ display: 'flex', gap: '28px' }}>
+          {/* Desktop Actions Wrapper */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }} className="nav-actions-desktop">
+            <div className="nav-links-container" style={{ display: 'flex', gap: '22px' }}>
               {navLinks.map((link) => (
                 <a
                   key={link.name}
                   href={link.href}
                   onClick={(e) => { e.preventDefault(); handleLinkClick(link.href); }}
                   style={{
-                    fontWeight: 500,
-                    fontSize: '0.92rem',
+                    fontWeight: 600,
+                    fontSize: '0.88rem',
                     color: 'var(--text-secondary)',
                     transition: 'var(--transition-fast)',
                     cursor: 'pointer'
@@ -112,40 +160,44 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAppointment, onOpenReports
               ))}
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              {/* Language toggle */}
+              <LanguageSelector />
+              
               <button 
                 onClick={onOpenReports}
                 className="btn btn-secondary" 
-                style={{ padding: '8px 16px', fontSize: '0.88rem' }}
+                style={{ padding: '6px 12px', fontSize: '0.8rem' }}
               >
-                View Reports
+                {t.viewReports}
               </button>
               
               <button 
                 onClick={onOpenAppointment}
                 className="btn btn-primary" 
-                style={{ padding: '8px 20px', fontSize: '0.88rem' }}
+                style={{ padding: '6px 14px', fontSize: '0.8rem' }}
               >
-                Book Appointment
+                {t.bookAppointment}
               </button>
             </div>
           </div>
 
-          {/* Mobile hamburger toggle */}
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-primary)',
-              display: 'none',
-              padding: '6px'
-            }}
-            className="mobile-menu-toggle"
-          >
-            {isOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          {/* Mobile actions & hamburger */}
+          <div style={{ display: 'none', alignItems: 'center', gap: '10px' }} className="mobile-toggle-wrapper">
+            <LanguageSelector />
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-primary)',
+                padding: '6px'
+              }}
+            >
+              {isOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
 
         {/* Global style injection for responsiveness of navbar */}
@@ -154,8 +206,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAppointment, onOpenReports
             .nav-actions-desktop {
               display: none !important;
             }
-            .mobile-menu-toggle {
-              display: block !important;
+            .mobile-toggle-wrapper {
+              display: flex !important;
             }
           }
           .nav-link-item:hover {
@@ -177,7 +229,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAppointment, onOpenReports
               top: '72px',
               left: 0,
               width: '100%',
-              background: 'rgba(255, 255, 255, 0.95)',
+              background: 'rgba(255, 255, 255, 0.98)',
               backdropFilter: 'blur(16px)',
               zIndex: 899,
               boxShadow: 'var(--shadow-lg)',
@@ -185,17 +237,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAppointment, onOpenReports
               padding: '24px'
             }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {navLinks.map((link) => (
                 <a
                   key={link.name}
                   href={link.href}
                   onClick={(e) => { e.preventDefault(); handleLinkClick(link.href); }}
                   style={{
-                    fontSize: '1.05rem',
+                    fontSize: '1rem',
                     fontWeight: 600,
                     color: 'var(--text-primary)',
-                    padding: '8px 0',
+                    padding: '6px 0',
                     borderBottom: '1px solid #f1f5f9'
                   }}
                 >
@@ -203,20 +255,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAppointment, onOpenReports
                 </a>
               ))}
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
                 <button 
                   onClick={() => { setIsOpen(false); onOpenReports(); }}
                   className="btn btn-secondary" 
-                  style={{ width: '100%', padding: '12px' }}
+                  style={{ width: '100%', padding: '10px' }}
                 >
-                  View Reports
+                  {t.viewReports}
                 </button>
                 <button 
                   onClick={() => { setIsOpen(false); onOpenAppointment(); }}
                   className="btn btn-primary" 
-                  style={{ width: '100%', padding: '12px' }}
+                  style={{ width: '100%', padding: '10px' }}
                 >
-                  Book Appointment
+                  {t.bookAppointment}
                 </button>
               </div>
             </div>

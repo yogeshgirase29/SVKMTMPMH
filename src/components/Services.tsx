@@ -1,48 +1,56 @@
 import React from 'react';
 import { FlaskConical, Scan, HeartPulse, Stethoscope, Droplet, FileSpreadsheet, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { type Language, translations } from '../utils/translations';
 
-export const Services: React.FC = () => {
+
+interface ServicesProps {
+  language: Language;
+}
+
+export const Services: React.FC<ServicesProps> = ({ language }) => {
+  const t = translations[language];
+
   const servicesData = [
     {
       icon: FlaskConical,
-      title: 'Diagnostic Pathology',
-      desc: 'Comprehensive automated biochemistry, pathology, and microbiology testing with precision analysis.',
+      title: t.servicePathologyTitle,
+      desc: t.servicePathologyDesc,
       color: '#0284c7',
       bgLight: 'rgba(2, 132, 199, 0.05)'
     },
     {
       icon: Scan,
-      title: 'Radiology & Imaging',
-      desc: 'High-resolution digital X-rays, multi-slice CT, high-speed MRI, and color Doppler ultrasound services.',
+      title: t.serviceRadiologyTitle,
+      desc: t.serviceRadiologyDesc,
       color: '#06b6d4',
       bgLight: 'rgba(6, 182, 212, 0.05)'
     },
     {
       icon: HeartPulse,
-      title: 'Pediatrics & NICU',
-      desc: 'Dedicated neonatal intensive care units and round-the-clock specialized pediatric supervision.',
+      title: t.servicePedsTitle,
+      desc: t.servicePedsDesc,
       color: '#0d9488',
       bgLight: 'rgba(13, 148, 136, 0.05)'
     },
     {
       icon: Stethoscope,
-      title: 'Specialist OPD Clinics',
-      desc: 'Direct consultation across General Medicine, Surgery, Orthopedics, Gynecology, and Cardiology.',
+      title: t.serviceOpdTitle,
+      desc: t.serviceOpdDesc,
       color: '#4f46e5',
       bgLight: 'rgba(79, 70, 229, 0.05)'
     },
     {
       icon: Droplet,
-      title: 'Emergency & ICU (24/7)',
-      desc: 'Fully equipped modern critical care facilities and emergency trauma response teams.',
+      title: t.serviceEmergencyTitle,
+      desc: t.serviceEmergencyDesc,
       color: '#db2777',
       bgLight: 'rgba(219, 39, 119, 0.05)'
     },
     {
       icon: FileSpreadsheet,
-      title: 'PMJAY Cashless Desk',
-      desc: 'Seamless admission and cashless benefits assistance for Ayushman Bharat & MJPJAY schemes.',
+      title: t.servicePmjayTitle,
+      desc: t.servicePmjayDesc,
       color: '#0891b2',
       bgLight: 'rgba(8, 145, 178, 0.05)'
     }
@@ -60,10 +68,10 @@ export const Services: React.FC = () => {
       <div className="container">
         {/* Header */}
         <div className="section-header">
-          <span className="section-tag">OUR SERVICES</span>
-          <h2 className="section-title">Specialized Clinical & Diagnostic Services</h2>
+          <span className="section-tag">{t.servicesTag}</span>
+          <h2 className="section-title">{t.servicesTitle}</h2>
           <p className="section-desc">
-            We provide a complete suite of medical services utilizing next-generation healthcare technologies.
+            {t.servicesDesc}
           </p>
         </div>
 
@@ -135,7 +143,7 @@ export const Services: React.FC = () => {
                   }}
                   className="service-link"
                 >
-                  Schedule Service <ArrowRight size={14} className="service-arrow" style={{ transition: 'transform var(--transition-fast)' }} />
+                  {t.scheduleService} <ArrowRight size={14} className="service-arrow" style={{ transition: 'transform var(--transition-fast)' }} />
                 </a>
               </motion.div>
             );

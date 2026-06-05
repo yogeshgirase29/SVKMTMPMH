@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
+import { type Language, translations } from '../utils/translations';
+
 
 interface CounterProps {
   target: number;
@@ -35,7 +37,6 @@ const CountUp: React.FC<CounterProps> = ({ target, duration = 2000, suffix = '' 
     return () => clearInterval(timer);
   }, [isInView, target, duration]);
 
-  // Format numbers nicely with commas if >= 1000
   const formatNumber = (num: number) => {
     return num.toLocaleString();
   };
@@ -43,12 +44,18 @@ const CountUp: React.FC<CounterProps> = ({ target, duration = 2000, suffix = '' 
   return <span ref={ref}>{formatNumber(count)}{suffix}</span>;
 };
 
-export const Stats: React.FC = () => {
+interface StatsProps {
+  language: Language;
+}
+
+export const Stats: React.FC<StatsProps> = ({ language }) => {
+  const t = translations[language];
+
   const statsData = [
-    { target: 1200, suffix: '+', label: 'Hospital Beds', desc: 'Tertiary healthcare capacity' },
-    { target: 150, suffix: '+', label: 'Specialists & Doctors', desc: 'Resident clinical team' },
-    { target: 7, suffix: ' Lakh+ Sq.Ft.', label: 'Campus Area', desc: 'Modern medical infrastructure' },
-    { target: 24, suffix: '/7', label: 'Critical & ICU Care', desc: 'Always active trauma service', isTime: true }
+    { target: 1200, suffix: '+', label: t.statBedsLabel, desc: t.statBedsDesc },
+    { target: 150, suffix: '+', label: t.statDoctorsLabel, desc: t.statDoctorsDesc },
+    { target: 7, suffix: language === 'en' ? ' Lakh+ Sq.Ft.' : ' लाख+ चौ.फू.', label: t.statCampusLabel, desc: t.statCampusDesc },
+    { target: 24, suffix: '/7', label: t.statIcuLabel, desc: t.statIcuDesc, isTime: true }
   ];
 
   return (

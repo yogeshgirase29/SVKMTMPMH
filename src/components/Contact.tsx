@@ -1,8 +1,16 @@
 import React, { useState } from 'react';
 import { MapPin, Phone, Mail, Clock, Send, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { type Language, translations } from '../utils/translations';
 
-export const Contact: React.FC = () => {
+
+interface ContactProps {
+  language: Language;
+}
+
+export const Contact: React.FC<ContactProps> = ({ language }) => {
+  const t = translations[language];
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -22,23 +30,23 @@ export const Contact: React.FC = () => {
   const contactInfo = [
     {
       icon: MapPin,
-      title: 'Our Location',
-      details: 'Kharde BK, Shirpur, District Dhule, Maharashtra - 425405'
+      title: t.contactLoc,
+      details: t.contactLocDet
     },
     {
       icon: Phone,
-      title: 'Phone Number',
-      details: '+91 99693 79023 / +91 2563 295550'
+      title: t.contactPhone,
+      details: t.contactPhoneDet
     },
     {
       icon: Mail,
-      title: 'Email Address',
-      details: 'info.tmpmhospital@svkm.ac.in / admissions@svkm.ac.in'
+      title: t.contactEmail,
+      details: t.contactEmailDet
     },
     {
       icon: Clock,
-      title: 'Working Hours',
-      details: 'Emergency & Trauma: 24/7 | OPD: Mon - Sat 09:00 AM - 05:00 PM'
+      title: t.contactHours,
+      details: t.contactHoursDet
     }
   ];
 
@@ -54,10 +62,10 @@ export const Contact: React.FC = () => {
       <div className="container">
         {/* Header */}
         <div className="section-header">
-          <span className="section-tag">CONTACT US</span>
-          <h2 className="section-title">Get in Touch with Our Team</h2>
+          <span className="section-tag">{t.contactTag}</span>
+          <h2 className="section-title">{t.contactTitle}</h2>
           <p className="section-desc">
-            Have queries regarding medical treatments, outpatient schedules, emergency services, or Ayushman Bharat cashless admissions? Reach out below.
+            {t.contactDesc}
           </p>
         </div>
 
@@ -145,12 +153,12 @@ export const Contact: React.FC = () => {
             {!isSubmitted ? (
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <h3 style={{ fontSize: '1.4rem', color: 'var(--primary)', fontWeight: 700, marginBottom: '4px' }}>
-                  Send a Direct Message
+                  {t.formTitle}
                 </h3>
                 
                 {/* Name */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Your Name *</label>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.formName}</label>
                   <input 
                     type="text" 
                     required 
@@ -169,7 +177,7 @@ export const Contact: React.FC = () => {
 
                 {/* Email */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Email Address *</label>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.formEmail}</label>
                   <input 
                     type="email" 
                     required 
@@ -188,10 +196,10 @@ export const Contact: React.FC = () => {
 
                 {/* Subject */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Subject</label>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.formSubject}</label>
                   <input 
                     type="text" 
-                    placeholder="Inquiry about OPD Schedule / Admissions"
+                    placeholder={t.formSubjectPlaceholder}
                     value={formData.subject}
                     onChange={e => setFormData({ ...formData, subject: e.target.value })}
                     style={{
@@ -206,11 +214,11 @@ export const Contact: React.FC = () => {
 
                 {/* Message */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Message *</label>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.formMessage}</label>
                   <textarea 
                     rows={4}
                     required 
-                    placeholder="How can our clinical team help you?"
+                    placeholder={t.formMessagePlaceholder}
                     value={formData.message}
                     onChange={e => setFormData({ ...formData, message: e.target.value })}
                     style={{
@@ -230,7 +238,7 @@ export const Contact: React.FC = () => {
                   className="btn btn-primary"
                   style={{ width: '100%', height: '48px', gap: '8px', marginTop: '10px' }}
                 >
-                  <Send size={16} /> Send Direct Inquiry
+                  <Send size={16} /> {t.formSubmit}
                 </button>
               </form>
             ) : (
@@ -261,12 +269,12 @@ export const Contact: React.FC = () => {
                 }}>
                   <CheckCircle2 size={32} />
                 </div>
-                <h3 style={{ fontSize: '1.35rem', marginBottom: '8px' }}>Inquiry Sent Successfully</h3>
+                <h3 style={{ fontSize: '1.35rem', marginBottom: '8px' }}>{t.formSuccessTitle}</h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', maxWidth: '300px', marginBottom: '24px' }}>
-                  Thank you for contacting SVKM's TMPM Hospital. A hospital helpdesk representative will respond to your email shortly.
+                  {t.formSuccessDesc}
                 </p>
                 <button onClick={() => setIsSubmitted(false)} className="btn btn-secondary" style={{ width: '140px' }}>
-                  Send Another
+                  {t.formSuccessBtn}
                 </button>
               </motion.div>
             )}

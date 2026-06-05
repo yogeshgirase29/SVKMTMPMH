@@ -1,28 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { Star, ChevronLeft, ChevronRight, Quote } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { type Language, translations } from '../utils/translations';
 
-export const Testimonials: React.FC = () => {
+
+interface TestimonialsProps {
+  language: Language;
+}
+
+export const Testimonials: React.FC<TestimonialsProps> = ({ language }) => {
+  const t = translations[language];
+
   const reviews = [
     {
-      name: 'Eleanor Vance',
-      role: 'Chronic Health Program',
+      name: t.rev1Name,
+      role: t.rev1Role,
       rating: 5,
-      comment: 'The home sample collection service was exceptionally professional. The phlebotomist arrived on time, was extremely gentle, and I received my diagnostic blood panel online in just under 6 hours!',
+      comment: t.rev1Comment,
       image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150'
     },
     {
-      name: 'Marcus Brody',
-      role: 'Executive Fitness Checkup',
+      name: t.rev2Name,
+      role: t.rev2Role,
       rating: 5,
-      comment: 'Entering my security code in the patient portal loaded an incredibly detailed dashboard of my lipid and blood levels. The slider visualizer charts made it simple to understand which values needed exercise changes.',
+      comment: t.rev2Comment,
       image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150'
     },
     {
-      name: 'Dr. Clara Sterling',
-      role: 'External Physician Partner',
+      name: t.rev3Name,
+      role: t.rev3Role,
       rating: 5,
-      comment: 'As a private consultant, I require high precision from partner laboratories. Aura Clinic provides outstanding radiology accuracy, consistent calibrations, and swift service which my patients value greatly.',
+      comment: t.rev3Comment,
       image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150'
     }
   ];
@@ -58,10 +66,10 @@ export const Testimonials: React.FC = () => {
       <div className="container" style={{ position: 'relative', zIndex: 10 }}>
         {/* Header */}
         <div className="section-header">
-          <span className="section-tag">TESTIMONIALS</span>
-          <h2 className="section-title">What Our Patients Say About Us</h2>
+          <span className="section-tag">{t.testimonialsTag}</span>
+          <h2 className="section-title">{t.testimonialsTitle}</h2>
           <p className="section-desc">
-            Read stories of reliable healthcare experience, swift digital deliveries, and patient-first diagnostics.
+            {t.testimonialsDesc}
           </p>
         </div>
 

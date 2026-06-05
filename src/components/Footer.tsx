@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Stethoscope, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { type Language, translations } from '../utils/translations';
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {
   size?: number | string;
@@ -21,7 +22,13 @@ const Instagram = ({ size, ...props }: IconProps) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size || "1em"} height={size || "1em"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
 );
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  language: Language;
+}
+
+export const Footer: React.FC<FooterProps> = ({ language }) => {
+  const t = translations[language];
+
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
 
@@ -67,7 +74,7 @@ export const Footer: React.FC = () => {
             <a 
               href="#home" 
               onClick={(e) => { e.preventDefault(); handleLinkClick('#home'); }}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--white)', fontWeight: 800, fontSize: '1.35rem' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--white)', fontWeight: 800, fontSize: '1.25rem' }}
             >
               <div style={{
                 background: 'var(--gradient-primary)',
@@ -78,12 +85,13 @@ export const Footer: React.FC = () => {
               }}>
                 <Stethoscope size={20} />
               </div>
-              <span style={{ letterSpacing: '-0.5px' }}>
-                SVKM | <span style={{ color: 'var(--cyan)', fontWeight: 600 }}>TMPM HOSPITAL</span>
+              <span style={{ letterSpacing: '-0.5px', display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
+                <span style={{ fontSize: '1.05rem', fontWeight: 800 }}>SVKM</span>
+                <span style={{ color: 'var(--cyan)', fontWeight: 600, fontSize: '0.8rem', marginTop: '2px' }}>TMPM HOSPITAL</span>
               </span>
             </a>
             <p style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
-              SVKM's Tapanbhai Mukeshbhai Patel Memorial Hospital & Research Centre is committed to delivering world-class clinical treatments, academic research, and cashless schemes access for patient wellness.
+              {t.footerBio}
             </p>
             {/* Social Icons */}
             <div style={{ display: 'flex', gap: '12px' }}>
@@ -96,40 +104,40 @@ export const Footer: React.FC = () => {
 
           {/* Col 2: Quick Links */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h4 style={{ color: 'var(--white)', fontSize: '1.05rem', fontWeight: 700 }}>Quick Links</h4>
+            <h4 style={{ color: 'var(--white)', fontSize: '1.05rem', fontWeight: 700 }}>{t.navWhyUs}</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <a href="#home" onClick={(e) => { e.preventDefault(); handleLinkClick('#home'); }} className="footer-link">Home</a>
-              <a href="#services" onClick={(e) => { e.preventDefault(); handleLinkClick('#services'); }} className="footer-link">Services</a>
-              <a href="#why-us" onClick={(e) => { e.preventDefault(); handleLinkClick('#why-us'); }} className="footer-link">Why Choose Us</a>
-              <a href="#workflow" onClick={(e) => { e.preventDefault(); handleLinkClick('#workflow'); }} className="footer-link">Timeline Process</a>
-              <a href="#doctors" onClick={(e) => { e.preventDefault(); handleLinkClick('#doctors'); }} className="footer-link">Specialists</a>
+              <a href="#home" onClick={(e) => { e.preventDefault(); handleLinkClick('#home'); }} className="footer-link">{t.navHome}</a>
+              <a href="#services" onClick={(e) => { e.preventDefault(); handleLinkClick('#services'); }} className="footer-link">{t.navServices}</a>
+              <a href="#why-us" onClick={(e) => { e.preventDefault(); handleLinkClick('#why-us'); }} className="footer-link">{t.navWhyUs}</a>
+              <a href="#workflow" onClick={(e) => { e.preventDefault(); handleLinkClick('#workflow'); }} className="footer-link">{t.navWorkflow}</a>
+              <a href="#doctors" onClick={(e) => { e.preventDefault(); handleLinkClick('#doctors'); }} className="footer-link">{t.navDoctors}</a>
             </div>
           </div>
 
           {/* Col 3: Services */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h4 style={{ color: 'var(--white)', fontSize: '1.05rem', fontWeight: 700 }}>Services</h4>
+            <h4 style={{ color: 'var(--white)', fontSize: '1.05rem', fontWeight: 700 }}>{t.navServices}</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <a href="#services" onClick={(e) => { e.preventDefault(); handleLinkClick('#services'); }} className="footer-link">Diagnostic Pathology</a>
-              <a href="#services" onClick={(e) => { e.preventDefault(); handleLinkClick('#services'); }} className="footer-link">Radiology & Imaging</a>
-              <a href="#services" onClick={(e) => { e.preventDefault(); handleLinkClick('#services'); }} className="footer-link">Pediatrics & NICU</a>
-              <a href="#services" onClick={(e) => { e.preventDefault(); handleLinkClick('#services'); }} className="footer-link">Specialist OPD Clinics</a>
-              <a href="#services" onClick={(e) => { e.preventDefault(); handleLinkClick('#services'); }} className="footer-link">PMJAY Cashless Helpdesk</a>
+              <a href="#services" onClick={(e) => { e.preventDefault(); handleLinkClick('#services'); }} className="footer-link">{t.servicePathologyTitle}</a>
+              <a href="#services" onClick={(e) => { e.preventDefault(); handleLinkClick('#services'); }} className="footer-link">{t.serviceRadiologyTitle}</a>
+              <a href="#services" onClick={(e) => { e.preventDefault(); handleLinkClick('#services'); }} className="footer-link">{t.servicePedsTitle}</a>
+              <a href="#services" onClick={(e) => { e.preventDefault(); handleLinkClick('#services'); }} className="footer-link">{t.serviceOpdTitle}</a>
+              <a href="#services" onClick={(e) => { e.preventDefault(); handleLinkClick('#services'); }} className="footer-link">{t.servicePmjayTitle}</a>
             </div>
           </div>
 
           {/* Col 4: Newsletter */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h4 style={{ color: 'var(--white)', fontSize: '1.05rem', fontWeight: 700 }}>Subscribe to Newsletter</h4>
+            <h4 style={{ color: 'var(--white)', fontSize: '1.05rem', fontWeight: 700 }}>{t.footerNewsletter}</h4>
             <p style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>
-              Stay updated on health tips, routine diagnostic packages, and wellness programs.
+              {t.footerNewsletterDesc}
             </p>
             {!subscribed ? (
               <form onSubmit={handleSubscribe} style={{ display: 'flex', position: 'relative' }}>
                 <input 
                   type="email" 
                   required 
-                  placeholder="Enter your email" 
+                  placeholder={t.footerNewsletterPlaceholder} 
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   style={{
@@ -178,7 +186,7 @@ export const Footer: React.FC = () => {
                 fontSize: '0.85rem'
               }}>
                 <CheckCircle2 size={16} />
-                <span>Subscription confirmed! Thank you.</span>
+                <span>{t.footerNewsletterSuccess}</span>
               </div>
             )}
           </div>
@@ -199,7 +207,7 @@ export const Footer: React.FC = () => {
           fontSize: '0.8rem'
         }} className="footer-bottom">
           <div>
-            © {new Date().getFullYear()} SVKM's Tapanbhai Mukeshbhai Patel Memorial Hospital & Research Centre. All Rights Reserved.
+            © {new Date().getFullYear()} {t.footerRights}
           </div>
           <div style={{ display: 'flex', gap: '20px' }}>
             <a href="#" className="footer-sublink">Privacy Policy</a>
