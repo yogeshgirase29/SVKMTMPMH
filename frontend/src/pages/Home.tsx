@@ -1,29 +1,30 @@
 import React, { useState } from 'react';
-import { Navbar } from './components/Navbar';
-import { Hero } from './components/Hero';
-import { Stats } from './components/Stats';
-import { Services } from './components/Services';
-import { WhyChooseUs } from './components/WhyChooseUs';
-import { Workflow } from './components/Workflow';
-import { Doctors } from './components/Doctors';
-import { Testimonials } from './components/Testimonials';
-import { CTA } from './components/CTA';
-import { Contact } from './components/Contact';
-import { Footer } from './components/Footer';
-import { AppointmentModal, ReportModal } from './components/Modals';
-import type { Language } from './utils/translations';
+import { Navbar } from '../components/Navbar';
+import { Hero } from '../components/Hero';
+import { Stats } from '../components/Stats';
+import { Services } from '../components/Services';
+import { WhyChooseUs } from '../components/WhyChooseUs';
+import { Workflow } from '../components/Workflow';
+import { Doctors } from '../components/Doctors';
+import { Gallery } from '../components/Gallery';
+import { News } from '../components/News';
+import { Testimonials } from '../components/Testimonials';
+import { CTA } from '../components/CTA';
+import { Contact } from '../components/Contact';
+import { Footer } from '../components/Footer';
+import { AppointmentModal, AppointmentStatusModal } from '../components/Modals';
+import type { Language } from '../utils/translations';
 
-
-const App: React.FC = () => {
+const Home: React.FC = () => {
   const [language, setLanguage] = useState<Language>('en');
   const [isAppointmentOpen, setIsAppointmentOpen] = useState(false);
-  const [isReportsOpen, setIsReportsOpen] = useState(false);
+  const [isStatusOpen, setIsStatusOpen] = useState(false);
 
   const handleOpenAppointment = () => setIsAppointmentOpen(true);
   const handleCloseAppointment = () => setIsAppointmentOpen(false);
 
-  const handleOpenReports = () => setIsReportsOpen(true);
-  const handleCloseReports = () => setIsReportsOpen(false);
+  const handleOpenStatus = () => setIsStatusOpen(true);
+  const handleCloseStatus = () => setIsStatusOpen(false);
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -32,7 +33,7 @@ const App: React.FC = () => {
         language={language}
         setLanguage={setLanguage}
         onOpenAppointment={handleOpenAppointment} 
-        onOpenReports={handleOpenReports} 
+        onOpenStatus={handleOpenStatus}
       />
 
       {/* Main Content Sections */}
@@ -40,13 +41,14 @@ const App: React.FC = () => {
         <Hero 
           language={language}
           onOpenAppointment={handleOpenAppointment} 
-          onOpenReports={handleOpenReports} 
         />
         <Stats language={language} />
         <Services language={language} />
         <WhyChooseUs language={language} />
         <Workflow language={language} />
         <Doctors language={language} />
+        <Gallery language={language} />
+        <News language={language} />
         <Testimonials language={language} />
         <CTA language={language} onOpenAppointment={handleOpenAppointment} />
         <Contact language={language} />
@@ -61,13 +63,13 @@ const App: React.FC = () => {
         isOpen={isAppointmentOpen} 
         onClose={handleCloseAppointment} 
       />
-      <ReportModal 
+      <AppointmentStatusModal 
         language={language}
-        isOpen={isReportsOpen} 
-        onClose={handleCloseReports} 
+        isOpen={isStatusOpen} 
+        onClose={handleCloseStatus} 
       />
     </div>
   );
 };
 
-export default App;
+export default Home;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { type Language, translations } from '../utils/translations';
-
+import { statsApi } from '../services/api';
 
 interface CounterProps {
   target: number;
@@ -50,12 +50,56 @@ interface StatsProps {
 
 export const Stats: React.FC<StatsProps> = ({ language }) => {
   const t = translations[language];
+  const [stats, setStats] = useState({
+    beds: 1200,
+    doctors: 150,
+    campusArea: '7 Lakh+ Sq.Ft.',
+    emergencyStatus: 'Active'
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await statsApi.get();
+        if (res.success && res.stats) {
+          setStats(res.stats);
+        }
+      } catch (err) {
+        console.error('Failed to load stats:', err);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  // Parse campus area to dynamically CountUp the number portion
+  const parseCampusArea = (areaStr: string) => {
+    const match = areaStr.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+    if (match) {
+      return {
+        target: parseFloat(match[1]),
+        suffix: ' ' + match[2]
+      };
+    }
+    return {
+      target: 7,
+      suffix: language === 'en' ? ' Lakh+ Sq.Ft.' : ' लाख+ चौ.फू.'
+    };
+  };
+
+  const parsedCampus = parseCampusArea(stats.campusArea);
 
   const statsData = [
-    { target: 1200, suffix: '+', label: t.statBedsLabel, desc: t.statBedsDesc },
-    { target: 150, suffix: '+', label: t.statDoctorsLabel, desc: t.statDoctorsDesc },
-    { target: 7, suffix: language === 'en' ? ' Lakh+ Sq.Ft.' : ' लाख+ चौ.फू.', label: t.statCampusLabel, desc: t.statCampusDesc },
-    { target: 24, suffix: '/7', label: t.statIcuLabel, desc: t.statIcuDesc, isTime: true }
+    { target: stats.beds, suffix: '+', label: t.statBedsLabel, desc: t.statBedsDesc },
+    { target: stats.doctors, suffix: '+', label: t.statDoctorsLabel, desc: t.statDoctorsDesc },
+    { target: parsedCampus.target, suffix: parsedCampus.suffix, label: t.statCampusLabel, desc: t.statCampusDesc },
+    { 
+      target: 24, 
+      suffix: '/7', 
+      label: t.statIcuLabel, 
+      desc: t.statIcuDesc, 
+      isTime: true, 
+      displayValue: stats.emergencyStatus.toLowerCase() === 'active' ? '24/7' : stats.emergencyStatus 
+    }
   ];
 
   return (
@@ -106,7 +150,7 @@ export const Stats: React.FC<StatsProps> = ({ language }) => {
                 lineHeight: 1
               }} className="text-gradient">
                 {stat.isTime ? (
-                  <span>24/7</span>
+                  <span>{stat.displayValue}</span>
                 ) : (
                   <CountUp target={stat.target} suffix={stat.suffix} />
                 )}

@@ -7,10 +7,9 @@ import { type Language, translations } from '../utils/translations';
 interface HeroProps {
   language: Language;
   onOpenAppointment: () => void;
-  onOpenReports: () => void;
 }
 
-export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment, onOpenReports }) => {
+export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
   const t = translations[language];
 
   return (
@@ -90,13 +89,6 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment, onOpenR
                 style={{ padding: '14px 28px', gap: '8px', fontSize: '0.95rem' }}
               >
                 <Calendar size={18} /> {t.bookAppointment}
-              </button>
-              <button 
-                onClick={onOpenReports}
-                className="btn btn-secondary"
-                style={{ padding: '14px 28px', gap: '8px', fontSize: '0.95rem' }}
-              >
-                <FileText size={18} /> {t.viewReports}
               </button>
             </div>
 

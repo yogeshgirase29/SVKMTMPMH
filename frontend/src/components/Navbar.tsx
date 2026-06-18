@@ -8,10 +8,10 @@ interface NavbarProps {
   language: Language;
   setLanguage: (lang: Language) => void;
   onOpenAppointment: () => void;
-  onOpenReports: () => void;
+  onOpenStatus: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ language, setLanguage, onOpenAppointment, onOpenReports }) => {
+export const Navbar: React.FC<NavbarProps> = ({ language, setLanguage, onOpenAppointment, onOpenStatus }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -35,6 +35,8 @@ export const Navbar: React.FC<NavbarProps> = ({ language, setLanguage, onOpenApp
     { name: t.navWhyUs, href: '#why-us' },
     { name: t.navWorkflow, href: '#workflow' },
     { name: t.navDoctors, href: '#doctors' },
+    { name: t.navGallery, href: '#gallery' },
+    { name: t.navNews, href: '#news' },
     { name: t.navReviews, href: '#testimonials' },
     { name: t.navContact, href: '#contact' },
   ];
@@ -165,13 +167,14 @@ export const Navbar: React.FC<NavbarProps> = ({ language, setLanguage, onOpenApp
               <LanguageSelector />
               
               <button 
-                onClick={onOpenReports}
+                onClick={onOpenStatus}
                 className="btn btn-secondary" 
                 style={{ padding: '6px 12px', fontSize: '0.8rem' }}
               >
-                {t.viewReports}
+                {language === 'en' ? 'Check Status' : 'अपॉइंटमेंट तपासा'}
               </button>
               
+
               <button 
                 onClick={onOpenAppointment}
                 className="btn btn-primary" 
@@ -257,13 +260,13 @@ export const Navbar: React.FC<NavbarProps> = ({ language, setLanguage, onOpenApp
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
                 <button 
-                  onClick={() => { setIsOpen(false); onOpenReports(); }}
+                  onClick={() => { setIsOpen(false); onOpenStatus(); }}
                   className="btn btn-secondary" 
                   style={{ width: '100%', padding: '10px' }}
                 >
-                  {t.viewReports}
+                  {language === 'en' ? 'Check Status' : 'अपॉइंटमेंट तपासा'}
                 </button>
-                <button 
+<button 
                   onClick={() => { setIsOpen(false); onOpenAppointment(); }}
                   className="btn btn-primary" 
                   style={{ width: '100%', padding: '10px' }}

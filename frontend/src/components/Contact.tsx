@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { MapPin, Phone, Mail, Clock, Send, CheckCircle2 } from 'lucide-react';
+import { MapPin, Phone, Mail, Clock, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { type Language, translations } from '../utils/translations';
-
+import { contactsApi } from '../services/api';
 
 interface ContactProps {
   language: Language;
@@ -13,18 +13,38 @@ export const Contact: React.FC<ContactProps> = ({ language }) => {
 
   const [formData, setFormData] = useState({
     name: '',
+    mobile: '',
     email: '',
-    subject: '',
     message: ''
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.message) return;
+    if (!formData.name || !formData.mobile || !formData.message) {
+      setErrorMsg(language === 'en' ? 'Please fill in all mandatory fields.' : 'कृपया सर्व आवश्यक फील्ड भरा.');
+      return;
+    }
     
-    setIsSubmitted(true);
-    setFormData({ name: '', email: '', subject: '', message: '' });
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const res = await contactsApi.create(formData);
+      if (res.success) {
+        setIsSubmitted(true);
+        setFormData({ name: '', mobile: '', email: '', message: '' });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(
+        err.response?.data?.message || 
+        (language === 'en' ? 'Submission failed. Please check connection.' : 'सबमिशन अयशस्वी. कृपया कनेक्शन तपासा.')
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const contactInfo = [
@@ -175,15 +195,17 @@ export const Contact: React.FC<ContactProps> = ({ language }) => {
                   />
                 </div>
 
-                {/* Email */}
+                {/* Mobile */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.formEmail}</label>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    {language === 'en' ? 'Mobile Number *' : 'मोबाईल नंबर *'}
+                  </label>
                   <input 
-                    type="email" 
+                    type="tel" 
                     required 
-                    placeholder="jane@example.com"
-                    value={formData.email}
-                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="e.g. +91 99693 79023"
+                    value={formData.mobile}
+                    onChange={e => setFormData({ ...formData, mobile: e.target.value })}
                     style={{
                       padding: '12px',
                       borderRadius: 'var(--radius-md)',
@@ -194,14 +216,16 @@ export const Contact: React.FC<ContactProps> = ({ language }) => {
                   />
                 </div>
 
-                {/* Subject */}
+                {/* Email */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.formSubject}</label>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    {language === 'en' ? 'Email Address' : 'ईमेल पत्ता'}
+                  </label>
                   <input 
-                    type="text" 
-                    placeholder={t.formSubjectPlaceholder}
-                    value={formData.subject}
-                    onChange={e => setFormData({ ...formData, subject: e.target.value })}
+                    type="email" 
+                    placeholder="jane@example.com"
+                    value={formData.email}
+                    onChange={e => setFormData({ ...formData, email: e.target.value })}
                     style={{
                       padding: '12px',
                       borderRadius: 'var(--radius-md)',
@@ -232,13 +256,22 @@ export const Contact: React.FC<ContactProps> = ({ language }) => {
                   />
                 </div>
 
+                {/* Error Prompt */}
+                {errorMsg && (
+                  <div style={{ color: '#ef4444', fontSize: '0.85rem', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <AlertCircle size={14} />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
+
                 {/* Submit button */}
                 <button 
                   type="submit" 
                   className="btn btn-primary"
-                  style={{ width: '100%', height: '48px', gap: '8px', marginTop: '10px' }}
+                  disabled={loading}
+                  style={{ width: '100%', height: '48px', gap: '8px', marginTop: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
                 >
-                  <Send size={16} /> {t.formSubmit}
+                  <Send size={16} /> {loading ? (language === 'en' ? 'Sending...' : 'पाठवत आहे...') : t.formSubmit}
                 </button>
               </form>
             ) : (

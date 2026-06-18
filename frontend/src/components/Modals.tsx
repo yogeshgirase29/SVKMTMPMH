@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { X, Calendar, Clock, User, Phone, Mail, FileText, CheckCircle2, Download, Search, Lock, AlertCircle, Printer } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Calendar, Clock, User, Phone, Mail, FileText, CheckCircle2, Download, Search, Lock, AlertCircle, Printer, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { type Language, translations } from '../utils/translations';
+import { doctorsApi, departmentsApi, appointmentsApi } from '../services/api';
 
 interface ModalProps {
   isOpen: boolean;
@@ -16,40 +17,173 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
     name: '',
     phone: '',
     email: '',
-    department: 'General Diagnostic',
-    doctor: 'Dr. Sarah Jenkins',
+    department: 'General Medicine',
+    doctor: '',
     date: '',
     time: '09:00 AM',
     notes: ''
   });
+
+  const [dbDepartments, setDbDepartments] = useState<any[]>([]);
+  const [dbDoctors, setDbDoctors] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successData, setSuccessData] = useState<any>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const departments = [
-    { value: 'General Diagnostic', label: language === 'en' ? 'General Diagnostic' : 'सामान्य निदान (General Diagnostic)' },
-    { value: 'Radiology & MRI', label: language === 'en' ? 'Radiology & MRI' : 'रेडिओलॉजी आणि एमआरआय (Radiology & MRI)' },
-    { value: 'Cardiology Desk', label: language === 'en' ? 'Cardiology Desk' : 'हृदयरोग विभाग (Cardiology Desk)' },
-    { value: 'Pathology Lab', label: language === 'en' ? 'Pathology Lab' : 'पॅथॉलॉजी लॅब (Pathology Lab)' },
-    { value: 'Specialist Consultation', label: language === 'en' ? 'Specialist Consultation' : 'तज्ञ सल्ला (Specialist Consultation)' },
-    { value: 'Home Sample Collection', label: language === 'en' ? 'Home Sample Collection' : 'घरपोच नमुना संकलन (Home Sample Collection)' }
-  ];
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
 
-  const doctors = [
-    { value: 'Dr. Sarah Jenkins', label: language === 'en' ? 'Dr. Sarah Jenkins (Cardiologist)' : 'डॉ. सारा जेन्किन्स (हृदयरोग तज्ञ)' },
-    { value: 'Dr. Robert Chen', label: language === 'en' ? 'Dr. Robert Chen (Radiologist)' : 'डॉ. रॉबर्ट चेन (रेडिओलॉजिस्ट)' },
-    { value: 'Dr. Emily Taylor', label: language === 'en' ? 'Dr. Emily Taylor (Pathologist)' : 'डॉ. एमिली टेलर (पॅथॉलॉजिस्ट)' },
-    { value: 'Dr. Michael Stone', label: language === 'en' ? 'Dr. Michael Stone (Internal Medicine)' : 'डॉ. मायकेल स्टोन (इंटर्नल मेडिसिन)' },
-    { value: 'Dr. Alisha Patel', label: language === 'en' ? 'Dr. Alisha Patel (Pediatric Specialist)' : 'डॉ. अलीशा पटेल (बालरोग तज्ञ)' }
-  ];
+  // Fetch doctors and departments on modal open
+  useEffect(() => {
+    if (isOpen) {
+      const loadFields = async () => {
+        setLoading(true);
+        setErrorMsg('');
+        try {
+          const [deptRes, docRes] = await Promise.all([
+            departmentsApi.getAll(),
+            doctorsApi.getAll(true) // Available only
+          ]);
+          
+          if (deptRes.success && deptRes.departments.length > 0) {
+            setDbDepartments(deptRes.departments);
+            const initialDept = deptRes.departments[0].departmentName.en;
+            
+            if (docRes.success && docRes.doctors.length > 0) {
+              setDbDoctors(docRes.doctors);
+              // Find first doctor in that department
+              const matchedDoc = docRes.doctors.find((d: any) => d.department.toLowerCase() === initialDept.toLowerCase());
+              const selectedDoc = matchedDoc ? matchedDoc.doctorName.en : docRes.doctors[0].doctorName.en;
+              
+              setFormData({
+                name: '',
+                phone: '',
+                email: '',
+                department: initialDept,
+                doctor: selectedDoc,
+                date: '',
+                time: '',
+                notes: ''
+              });
+            } else {
+              setFormData({
+                name: '',
+                phone: '',
+                email: '',
+                department: initialDept,
+                doctor: '',
+                date: '',
+                time: '',
+                notes: ''
+              });
+            }
+          }
+        } catch (err) {
+          console.error('Failed to load form parameters:', err);
+          setErrorMsg(language === 'en' ? 'Failed to connect to clinic server.' : 'वैद्यकीय सर्व्हरशी कनेक्ट करण्यात अयशस्वी.');
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadFields();
+    }
+  }, [isOpen, language]);
 
-  const times = [
-    '09:00 AM', '10:30 AM', '11:45 AM', '01:30 PM', '03:00 PM', '04:30 PM', '06:00 PM'
-  ];
+  // Fetch available slots when date or doctor changes
+  useEffect(() => {
+    const loadSlots = async () => {
+      if (!formData.date || !formData.doctor || dbDoctors.length === 0) {
+        setAvailableSlots([]);
+        return;
+      }
+      
+      setSlotsLoading(true);
+      try {
+        const doc = dbDoctors.find((d: any) => d.doctorName.en.toLowerCase() === formData.doctor.toLowerCase());
+        if (doc) {
+          const res = await appointmentsApi.getAvailableSlots(doc._id, formData.date);
+          if (res.success) {
+            setAvailableSlots(res.slots);
+            // Auto-select first slot if available and not set or if current selected slot is no longer available
+            if (res.slots.length > 0) {
+              if (!formData.time || !res.slots.includes(formData.time)) {
+                setFormData(prev => ({ ...prev, time: res.slots[0] }));
+              }
+            } else {
+              setFormData(prev => ({ ...prev, time: '' }));
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load slots:', err);
+      } finally {
+        setSlotsLoading(false);
+      }
+    };
 
-  const handleSubmit = (e: React.FormEvent) => {
+    loadSlots();
+  }, [formData.date, formData.doctor, dbDoctors]);
+
+  // Handle department change - auto filter/select matching doctor
+  const handleDepartmentChange = (deptName: string) => {
+    setFormData(prev => {
+      const matchedDoc = dbDoctors.find((d: any) => d.department.toLowerCase() === deptName.toLowerCase());
+      return {
+        ...prev,
+        department: deptName,
+        doctor: matchedDoc ? matchedDoc.doctorName.en : (dbDoctors[0]?.doctorName.en || ''),
+        time: ''
+      };
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.phone || !formData.date) return;
+    if (!formData.name || !formData.phone || !formData.date || !formData.doctor || !formData.department || !formData.time) {
+      setErrorMsg(language === 'en' ? 'Please fill in all mandatory fields, including the time slot.' : 'कृपया वेळ स्लॉटसह सर्व आवश्यक फील्ड भरा.');
+      return;
+    }
     
-    setIsSubmitted(true);
+    setSubmitLoading(true);
+    setErrorMsg('');
+
+    try {
+      const selectedDept = dbDepartments.find(
+        (d: any) => d.departmentName.en.toLowerCase() === formData.department.toLowerCase()
+      );
+      const selectedDoc = dbDoctors.find(
+        (d: any) => d.doctorName.en.toLowerCase() === formData.doctor.toLowerCase()
+      );
+
+      const payload = {
+        patientName: formData.name,
+        mobile: formData.phone,
+        email: formData.email,
+        department: formData.department,
+        departmentMr: selectedDept ? selectedDept.departmentName.mr : formData.department,
+        doctor: formData.doctor,
+        doctorMr: selectedDoc ? selectedDoc.doctorName.mr : formData.doctor,
+        appointmentDate: formData.date,
+        appointmentSlot: formData.time,
+        message: formData.notes
+      };
+
+      const res = await appointmentsApi.create(payload);
+      if (res.success) {
+        setSuccessData(res.appointment);
+        setIsSubmitted(true);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(
+        err.response?.data?.message || 
+        (language === 'en' ? 'Failed to submit appointment. Check connection.' : 'अपॉइंटमेंट पाठवण्यात अयशस्वी. कनेक्शन तपासा.')
+      );
+    } finally {
+      setSubmitLoading(false);
+    }
   };
 
   const handleReset = () => {
@@ -57,18 +191,24 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
       name: '',
       phone: '',
       email: '',
-      department: 'General Diagnostic',
-      doctor: 'Dr. Sarah Jenkins',
+      department: dbDepartments[0]?.departmentName.en || 'General Medicine',
+      doctor: dbDoctors[0]?.doctorName.en || '',
       date: '',
-      time: '09:00 AM',
+      time: '',
       notes: ''
     });
     setIsSubmitted(false);
+    setSuccessData(null);
+    setErrorMsg('');
+    setAvailableSlots([]);
     onClose();
   };
 
-  const selectedDoctorLabel = doctors.find(d => d.value === formData.doctor)?.label || formData.doctor;
-  const selectedDeptLabel = departments.find(d => d.value === formData.department)?.label || formData.department;
+  // Filter doctors list based on selected department
+  const filteredDoctors = dbDoctors.filter(
+    (doc: any) => doc.department.toLowerCase() === formData.department.toLowerCase()
+  );
+  const displayDoctors = filteredDoctors.length > 0 ? filteredDoctors : dbDoctors;
 
   return (
     <AnimatePresence>
@@ -116,8 +256,20 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
 
             {/* Content Body */}
             <div style={{ padding: '24px', overflowY: 'auto' }}>
-              {!isSubmitted ? (
+              
+              {loading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '60px 0' }}>
+                  <Loader2 size={36} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
+                </div>
+              ) : errorMsg && !submitLoading && !isSubmitted ? (
+                <div style={{ padding: '20px 0', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                  <AlertCircle size={36} style={{ color: '#ef4444' }} />
+                  <p style={{ fontWeight: 600 }}>{errorMsg}</p>
+                  <button onClick={onClose} className="btn btn-secondary">{t.modalClose}</button>
+                </div>
+              ) : !isSubmitted ? (
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  
                   {/* Name */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t.modalAppName}</label>
@@ -189,7 +341,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                       <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t.modalAppDept}</label>
                       <select 
                         value={formData.department}
-                        onChange={e => setFormData({ ...formData, department: e.target.value })}
+                        onChange={e => handleDepartmentChange(e.target.value)}
                         style={{
                           width: '100%',
                           padding: '12px',
@@ -199,7 +351,11 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                           backgroundColor: 'white'
                         }}
                       >
-                        {departments.map(dept => <option key={dept.value} value={dept.value}>{dept.label}</option>)}
+                        {dbDepartments.map(dept => (
+                          <option key={dept._id} value={dept.departmentName.en}>
+                            {dept.departmentName[language] || dept.departmentName.en}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -216,13 +372,17 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                           backgroundColor: 'white'
                         }}
                       >
-                        {doctors.map(doc => <option key={doc.value} value={doc.value}>{doc.label}</option>)}
+                        {displayDoctors.map(doc => (
+                          <option key={doc._id} value={doc.doctorName.en}>
+                            {doc.doctorName[language] || doc.doctorName.en} ({doc.specialization[language] || doc.specialization.en})
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
 
                   {/* Date & Time Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t.modalAppDate}</label>
                       <div style={{ position: 'relative' }}>
@@ -243,25 +403,86 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                         />
                       </div>
                     </div>
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t.modalAppSlot}</label>
-                      <div style={{ position: 'relative' }}>
-                        <Clock size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                        <select 
-                          value={formData.time}
-                          onChange={e => setFormData({ ...formData, time: e.target.value })}
-                          style={{
-                            width: '100%',
-                            padding: '12px 12px 12px 38px',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--border-muted)',
-                            fontSize: '0.95rem',
-                            backgroundColor: 'white'
-                          }}
-                        >
-                          {times.map(timeSlot => <option key={timeSlot} value={timeSlot}>{timeSlot}</option>)}
-                        </select>
-                      </div>
+                      {!formData.date ? (
+                        <div style={{
+                          fontSize: '0.88rem',
+                          color: 'var(--text-muted)',
+                          padding: '12px',
+                          border: '1px dashed var(--border-muted)',
+                          borderRadius: '8px',
+                          textAlign: 'center',
+                          background: 'rgba(0,0,0,0.02)'
+                        }}>
+                          {language === 'en' ? 'Please select an appointment date first.' : 'कृपया आधी अपॉइंटमेंटची तारीख निवडा.'}
+                        </div>
+                      ) : slotsLoading ? (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          padding: '16px',
+                          border: '1px solid var(--border-muted)',
+                          borderRadius: '8px',
+                          background: 'white'
+                        }}>
+                          <Loader2 size={18} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
+                          <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+                            {language === 'en' ? 'Fetching available slots...' : 'उपलब्ध वेळा शोधत आहे...'}
+                          </span>
+                        </div>
+                      ) : availableSlots.length === 0 ? (
+                        <div style={{
+                          fontSize: '0.88rem',
+                          color: '#ef4444',
+                          fontWeight: 600,
+                          padding: '12px',
+                          border: '1px solid #fee2e2',
+                          borderRadius: '8px',
+                          textAlign: 'center',
+                          background: '#fef2f2'
+                        }}>
+                          {language === 'en' ? 'No slots available for this date. Please choose another date.' : 'या तारखेसाठी एकही वेळ उपलब्ध नाही. कृपया दुसरी तारीख निवडा.'}
+                        </div>
+                      ) : (
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(92px, 1fr))',
+                          gap: '8px',
+                          maxHeight: '180px',
+                          overflowY: 'auto',
+                          padding: '4px',
+                          border: '1px solid var(--border-muted)',
+                          borderRadius: '8px',
+                          background: 'rgba(0,0,0,0.01)'
+                        }} className="slots-scroll-grid">
+                          {availableSlots.map(slot => (
+                            <button
+                              key={slot}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, time: slot })}
+                              style={{
+                                padding: '8px 4px',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                borderRadius: '6px',
+                                border: formData.time === slot ? '2px solid var(--med-blue)' : '1px solid var(--border-muted)',
+                                background: formData.time === slot ? 'var(--med-blue-light)' : 'white',
+                                color: formData.time === slot ? 'var(--med-blue)' : 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                textAlign: 'center',
+                                boxShadow: formData.time === slot ? 'var(--shadow-sm)' : 'none'
+                              }}
+                            >
+                              {slot}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -284,12 +505,22 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                     />
                   </div>
 
+                  {/* Error Prompt */}
+                  {errorMsg && (
+                    <div style={{ color: '#ef4444', fontSize: '0.85rem', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <AlertCircle size={14} />
+                      <span>{errorMsg}</span>
+                    </div>
+                  )}
+
                   {/* Submit Button */}
                   <button 
                     type="submit" 
                     className="btn btn-primary"
-                    style={{ width: '100%', marginTop: '10px', height: '48px' }}
+                    disabled={submitLoading}
+                    style={{ width: '100%', marginTop: '10px', height: '48px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
                   >
+                    {submitLoading && <Loader2 size={16} className="spin-animation" />}
                     {t.modalAppSubmit}
                   </button>
                 </form>
@@ -324,11 +555,11 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                   <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', maxWidth: '380px' }}>
                     {language === 'en' ? (
                       <>
-                        Thank you, <strong>{formData.name}</strong>. Your appointment has been booked for <strong>{formData.date}</strong> at <strong>{formData.time}</strong> with <strong>{selectedDoctorLabel}</strong>. {t.modalAppSuccessDesc}
+                        Thank you, <strong>{formData.name}</strong>. Your appointment has been booked for <strong>{new Date(successData?.appointmentDate).toLocaleDateString()}</strong> at <strong>{formData.time}</strong> with <strong>{formData.doctor}</strong>. {t.modalAppSuccessDesc}
                       </>
                     ) : (
                       <>
-                        धन्यवाद, <strong>{formData.name}</strong>. आपली अपॉइंटमेंट <strong>{formData.date}</strong> रोजी <strong>{formData.time}</strong> वाजता <strong>{selectedDoctorLabel}</strong> यांच्यासोबत बुक झाली आहे. {t.modalAppSuccessDesc}
+                        धन्यवाद, <strong>{formData.name}</strong>. आपली अपॉइंटमेंट <strong>{new Date(successData?.appointmentDate).toLocaleDateString()}</strong> रोजी <strong>{formData.time}</strong> वाजता <strong>{formData.doctor}</strong> यांच्यासोबत बुक झाली आहे. {t.modalAppSuccessDesc}
                       </>
                     )}
                   </p>
@@ -343,20 +574,30 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                   }}>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '8px' }}>{t.modalReceipt}</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: '0.9rem' }}>
-                      <div><strong>{t.modalBookingRef}:</strong> #SVKM-{Math.floor(100000 + Math.random() * 900000)}</div>
-                      <div><strong>{language === 'en' ? 'Dept' : 'विभाग'}:</strong> {selectedDeptLabel}</div>
+                      <div><strong>{t.modalBookingRef}:</strong> <span style={{ color: 'var(--med-blue)', fontWeight: 700 }}>{successData?.appointmentId}</span></div>
+                      <div><strong>{language === 'en' ? 'Dept' : 'विभाग'}:</strong> {successData?.departmentMr && language === 'mr' ? successData.departmentMr : successData?.department}</div>
                       <div><strong>{language === 'en' ? 'Phone' : 'फोन'}:</strong> {formData.phone}</div>
-                      <div><strong>{t.modalStatus}:</strong> <span style={{ color: '#0d9488', fontWeight: 600 }}>{t.modalConfirmed}</span></div>
+                      <div><strong>{t.modalStatus}:</strong> <span style={{ color: '#0d9488', fontWeight: 600 }}>{successData?.status || t.modalConfirmed}</span></div>
                     </div>
                   </div>
 
-                  <button 
-                    onClick={handleReset}
-                    className="btn btn-secondary"
-                    style={{ width: '150px' }}
-                  >
-                    {t.modalClose}
-                  </button>
+                  <div style={{ display: 'flex', gap: '10px', width: '100%', justifyContent: 'center' }}>
+                    <button 
+                      onClick={() => printVoucher(successData, language)}
+                      className="btn btn-primary"
+                      style={{ width: '170px', display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Download size={16} />
+                      {language === 'en' ? 'Download PDF' : 'पीडीएफ डाउनलोड करा'}
+                    </button>
+                    <button 
+                      onClick={handleReset}
+                      className="btn btn-secondary"
+                      style={{ width: '120px' }}
+                    >
+                      {t.modalClose}
+                    </button>
+                  </div>
                 </motion.div>
               )}
             </div>
@@ -848,6 +1089,352 @@ export const ReportModal: React.FC<ModalProps> = ({ isOpen, onClose, language })
                 }
               }
             `}</style>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+export const printVoucher = (app: any, language: Language = 'en') => {
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
+  if (!printWindow) return;
+
+  const titleText = language === 'mr' ? 'अपॉइंटमेंट पावती' : 'Appointment Voucher';
+  const appNoLabel = language === 'mr' ? 'अपॉइंटमेंट संदर्भ क्रमांक' : 'Appointment Number';
+  const statusLabel = language === 'mr' ? 'स्थिती' : 'Status';
+  const patientLabel = language === 'mr' ? 'रुग्णाचे नाव' : 'Patient Name';
+  const phoneLabel = language === 'mr' ? 'मोबाईल नंबर' : 'Mobile Number';
+  const deptLabel = language === 'mr' ? 'वैद्यकीय विभाग' : 'Department';
+  const docLabel = language === 'mr' ? 'पंसतीचे डॉक्टर' : 'Specialist Doctor';
+  const dateLabel = language === 'mr' ? 'अपॉइंटमेंट तारीख' : 'Appointment Date';
+  const notesLabel = language === 'mr' ? 'विशेष सूचना / लक्षणे' : 'Instructions / Notes';
+  const footerText = language === 'mr' 
+    ? 'कृपया नियोजित वेळेच्या १५ मिनिटे आधी रुग्णालयाच्या स्वागत कक्षात ही पावती सादर करावी.' 
+    : 'Please present this voucher at the hospital reception 15 minutes before the scheduled time slot.';
+  const printBtnText = language === 'mr' ? 'प्रिंट करा / पीडीएफ म्हणून जतन करा' : 'Print / Save as PDF';
+
+  const deptVal = language === 'mr' ? (app.departmentMr || app.department) : app.department;
+  const docVal = language === 'mr' ? (app.doctorMr || app.doctor) : app.doctor;
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Appointment Receipt - ${app.appointmentId}</title>
+        <style>
+          body { font-family: 'Inter', system-ui, sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; }
+          .header { text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; }
+          .logo { font-size: 24px; font-weight: 800; color: #0284c7; }
+          .subtitle { font-size: 14px; color: #64748b; margin-top: 4px; }
+          .title { font-size: 20px; margin: 20px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 40px; margin-bottom: 30px; }
+          .field { display: flex; flex-direction: column; }
+          .label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+          .value { font-size: 15px; font-weight: 700; margin-top: 4px; }
+          .status { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: 700; text-transform: uppercase; font-size: 12px; }
+          .status.pending { background: #fef3c7; color: #b45309; }
+          .status.confirmed { background: #ccfbf1; color: #0f766e; }
+          .status.completed { background: #dbeafe; color: #1d4ed8; }
+          .status.cancelled { background: #fee2e2; color: #b91c1c; }
+          .footer { margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 20px; font-size: 12px; color: #64748b; text-align: center; }
+          .btn-print { display: block; width: 250px; margin: 30px auto; padding: 12px; background: #0284c7; color: white; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; text-align: center; text-decoration: none; font-size: 14px; }
+          @media print {
+            .btn-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">SVKM'S TMPM HOSPITAL</div>
+          <div class="subtitle">Kharde BK, Shirpur, Dhule, Maharashtra - 425405</div>
+          <div class="title">${titleText}</div>
+        </div>
+        <div class="grid">
+          <div class="field">
+            <div class="label">${appNoLabel}</div>
+            <div class="value" style="color: #0284c7;">${app.appointmentId}</div>
+          </div>
+          <div class="field">
+            <div class="label">${statusLabel}</div>
+            <div class="value">
+              <span class="status ${app.status.toLowerCase()}">${app.status}</span>
+            </div>
+          </div>
+          <div class="field">
+            <div class="label">${patientLabel}</div>
+            <div class="value">${app.patientName}</div>
+          </div>
+          <div class="field">
+            <div class="label">${phoneLabel}</div>
+            <div class="value">${app.mobile}</div>
+          </div>
+          <div class="field">
+            <div class="label">${deptLabel}</div>
+            <div class="value">${deptVal}</div>
+          </div>
+          <div class="field">
+            <div class="label">${docLabel}</div>
+            <div class="value">${docVal}</div>
+          </div>
+          <div class="field" style="grid-column: span 2;">
+            <div class="label">${dateLabel}</div>
+            <div class="value">${new Date(app.appointmentDate).toLocaleDateString()}</div>
+          </div>
+          ${app.message ? `
+          <div class="field" style="grid-column: span 2;">
+            <div class="label">${notesLabel}</div>
+            <div class="value" style="font-weight: normal; font-style: italic;">"${app.message}"</div>
+          </div>` : ''}
+        </div>
+        <div class="footer">
+          ${footerText}
+        </div>
+        <button class="btn-print" onclick="window.print()">${printBtnText}</button>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+};
+
+export const AppointmentStatusModal: React.FC<ModalProps> = ({ isOpen, onClose, language }) => {
+  const t = translations[language];
+
+  const [appointmentNo, setAppointmentNo] = useState('');
+  const [searchStatus, setSearchStatus] = useState<'idle' | 'searching' | 'success' | 'failed'>('idle');
+  const [retrievedAppointment, setRetrievedAppointment] = useState<any>(null);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appointmentNo.trim()) return;
+
+    setSearchStatus('searching');
+    setErrorMsg('');
+    try {
+      const res = await appointmentsApi.getStatus(appointmentNo.trim());
+      if (res.success) {
+        setRetrievedAppointment(res.appointment);
+        setSearchStatus('success');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.response?.data?.message || 'Failed to find appointment.');
+      setSearchStatus('failed');
+    }
+  };
+
+  const handleReset = () => {
+    setSearchStatus('idle');
+    setAppointmentNo('');
+    setRetrievedAppointment(null);
+    setErrorMsg('');
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="modal-overlay">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="modal-content glass-panel-blue"
+            style={{ 
+              maxWidth: searchStatus === 'success' ? '540px' : '440px',
+              padding: 0,
+              maxHeight: '92vh'
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              background: 'var(--gradient-primary)',
+              padding: '20px 24px',
+              color: 'white',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderBottom: '1px solid rgba(255,255,255,0.08)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Calendar size={18} style={{ color: 'white' }} />
+                <h3 style={{ color: 'white', fontSize: '1.25rem' }}>
+                  {language === 'en' ? 'Check Appointment Status' : 'अपॉइंटमेंट स्थिती तपासा'}
+                </h3>
+              </div>
+              <button 
+                onClick={onClose}
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  color: 'white',
+                  cursor: 'pointer',
+                  padding: '8px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'var(--transition-fast)'
+                }}
+                className="hover-bright"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div style={{ padding: '24px', overflowY: 'auto' }}>
+              {searchStatus === 'idle' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                    <h4 style={{ fontSize: '1.2rem', marginBottom: '8px' }}>
+                      {language === 'en' ? 'Track Your Appointment' : 'तुमची अपॉइंटमेंट ट्रॅक करा'}
+                    </h4>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
+                      {language === 'en' 
+                        ? 'Enter the appointment reference number (e.g. AP2606070001) to verify your schedule status.' 
+                        : 'तुमच्या अपॉइंटमेंटचे वेळापत्रक तपासण्यासाठी अपॉइंटमेंट संदर्भ क्रमांक प्रविष्ट करा (उदा. AP2606070001).'}
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleSearch} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        {language === 'en' ? 'Appointment ID' : 'अपॉइंटमेंट संदर्भ क्रमांक'}
+                      </label>
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="e.g. AP2606070001"
+                        value={appointmentNo}
+                        onChange={e => setAppointmentNo(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--border-muted)',
+                          fontSize: '0.98rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}
+                      />
+                    </div>
+                    
+                    <button 
+                      type="submit" 
+                      className="btn btn-primary"
+                      style={{ height: '46px' }}
+                    >
+                      {language === 'en' ? 'Check Status' : 'स्थिती तपासा'}
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {searchStatus === 'searching' && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '50px 0' }}>
+                  <Loader2 size={36} className="spin-animation" style={{ color: 'var(--med-blue)', marginBottom: '16px' }} />
+                  <p style={{ fontWeight: 600 }}>
+                    {language === 'en' ? 'Retrieving appointment details...' : 'अपॉइंटमेंट तपशील शोधत आहे...'}
+                  </p>
+                </div>
+              )}
+
+              {searchStatus === 'failed' && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 0', textAlign: 'center', gap: '16px' }}>
+                  <AlertCircle size={28} style={{ color: '#ef4444' }} />
+                  <div>
+                    <h4 style={{ fontSize: '1.15rem', marginBottom: '6px' }}>
+                      {language === 'en' ? 'No Appointment Found' : 'अपॉइंटमेंट आढळली नाही'}
+                    </h4>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                      {errorMsg}
+                    </p>
+                  </div>
+                  <button onClick={handleReset} className="btn btn-secondary" style={{ width: '140px' }}>
+                    {language === 'en' ? 'Try Again' : 'पुन्हा प्रयत्न करा'}
+                  </button>
+                </div>
+              )}
+
+              {searchStatus === 'success' && retrievedAppointment && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  
+                  {/* Voucher Preview */}
+                  <div className="glass-panel" style={{
+                    padding: '20px',
+                    background: 'var(--bg-primary)',
+                    border: '1px solid var(--border-muted)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px' }}>
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                          {language === 'en' ? 'APPOINTMENT NO' : 'अपॉइंटमेंट संदर्भ क्रमांक'}
+                        </span>
+                        <div style={{ fontWeight: 800, color: 'var(--med-blue)', fontSize: '1.1rem' }}>{retrievedAppointment.appointmentId}</div>
+                      </div>
+                      <span className={`status-pill ${retrievedAppointment.status.toLowerCase()}`}>
+                        {retrievedAppointment.status}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 20px', fontSize: '0.85rem' }}>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          {language === 'en' ? 'Patient Name' : 'रुग्णाचे नाव'}
+                        </span>
+                        <div style={{ fontWeight: 700, color: 'var(--primary)', marginTop: '2px' }}>{retrievedAppointment.patientName}</div>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          {language === 'en' ? 'Mobile Number' : 'मोबाईल नंबर'}
+                        </span>
+                        <div style={{ fontWeight: 600, marginTop: '2px' }}>{retrievedAppointment.mobile}</div>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          {language === 'en' ? 'Department' : 'वैद्यकीय विभाग'}
+                        </span>
+                        <div style={{ fontWeight: 600, marginTop: '2px' }}>
+                          {language === 'mr' ? (retrievedAppointment.departmentMr || retrievedAppointment.department) : retrievedAppointment.department}
+                        </div>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          {language === 'en' ? 'Specialist Doctor' : 'पसंतीचे डॉक्टर'}
+                        </span>
+                        <div style={{ fontWeight: 600, marginTop: '2px' }}>
+                          {language === 'mr' ? (retrievedAppointment.doctorMr || retrievedAppointment.doctor) : retrievedAppointment.doctor}
+                        </div>
+                      </div>
+                      <div style={{ gridColumn: 'span 2' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          {language === 'en' ? 'Appointment Date' : 'अपॉइंटमेंट तारीख'}
+                        </span>
+                        <div style={{ fontWeight: 700, color: 'var(--primary)', marginTop: '2px' }}>{new Date(retrievedAppointment.appointmentDate).toLocaleDateString()}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <button onClick={handleReset} className="btn btn-secondary">
+                      {language === 'en' ? 'Back' : 'मागे'}
+                    </button>
+                    <button 
+                      onClick={() => printVoucher(retrievedAppointment, language)}
+                      className="btn btn-primary"
+                      style={{ display: 'flex', gap: '8px', alignItems: 'center' }}
+                    >
+                      <Download size={16} />
+                      {language === 'en' ? 'Download PDF' : 'पीडीएफ डाउनलोड करा'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </motion.div>
         </div>
       )}

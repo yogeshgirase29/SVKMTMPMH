@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Star, ChevronLeft, ChevronRight, Quote } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { type Language, translations } from '../utils/translations';
-
+import { testimonialsApi } from '../services/api';
 
 interface TestimonialsProps {
   language: Language;
@@ -11,7 +11,7 @@ interface TestimonialsProps {
 export const Testimonials: React.FC<TestimonialsProps> = ({ language }) => {
   const t = translations[language];
 
-  const reviews = [
+  const staticReviews = [
     {
       name: t.rev1Name,
       role: t.rev1Role,
@@ -35,22 +35,47 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ language }) => {
     }
   ];
 
+  const [dbReviews, setDbReviews] = useState<any[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const fetchTestimonials = async () => {
+      try {
+        const res = await testimonialsApi.getAll();
+        if (res.success && res.testimonials.length > 0) {
+          const mapped = res.testimonials.map((item: any) => ({
+            name: item.patientName,
+            role: language === 'en' ? 'Verified Patient' : 'सत्यापित रुग्ण',
+            rating: item.rating || 5,
+            comment: item.feedback,
+            image: item.image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'
+          }));
+          setDbReviews(mapped);
+        }
+      } catch (err) {
+        console.error('Failed to load testimonials:', err);
+      }
+    };
+    fetchTestimonials();
+  }, [language]);
+
+  const displayReviews = dbReviews.length > 0 ? dbReviews : staticReviews;
 
   // Auto scroll testimonials
   useEffect(() => {
+    if (displayReviews.length === 0) return;
     const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % reviews.length);
+      setActiveIndex((prev) => (prev + 1) % displayReviews.length);
     }, 8000);
     return () => clearInterval(interval);
-  }, [reviews.length]);
+  }, [displayReviews.length]);
 
   const handlePrev = () => {
-    setActiveIndex((prev) => (prev - 1 + reviews.length) % reviews.length);
+    setActiveIndex((prev) => (prev - 1 + displayReviews.length) % displayReviews.length);
   };
 
   const handleNext = () => {
-    setActiveIndex((prev) => (prev + 1) % reviews.length);
+    setActiveIndex((prev) => (prev + 1) % displayReviews.length);
   };
 
   return (
@@ -112,7 +137,7 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ language }) => {
 
               {/* Stars */}
               <div style={{ display: 'flex', gap: '4px', color: '#fbbf24' }}>
-                {[...Array(reviews[activeIndex].rating)].map((_, i) => (
+                {displayReviews[activeIndex] && [...Array(displayReviews[activeIndex].rating)].map((_, i) => (
                   <Star key={i} size={18} fill="#fbbf24" stroke="none" />
                 ))}
               </div>
@@ -125,7 +150,7 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ language }) => {
                 fontWeight: 500,
                 fontStyle: 'italic'
               }}>
-                "{reviews[activeIndex].comment}"
+                "{displayReviews[activeIndex]?.comment}"
               </p>
 
               {/* Patient Profile */}
@@ -139,17 +164,17 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ language }) => {
                   boxShadow: 'var(--shadow-md)'
                 }}>
                   <img 
-                    src={reviews[activeIndex].image} 
-                    alt={reviews[activeIndex].name} 
+                    src={displayReviews[activeIndex]?.image} 
+                    alt={displayReviews[activeIndex]?.name} 
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
                 </div>
                 <div>
                   <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--primary)' }}>
-                    {reviews[activeIndex].name}
+                    {displayReviews[activeIndex]?.name}
                   </h4>
                   <p style={{ fontSize: '0.82rem', color: 'var(--med-blue)', fontWeight: 600 }}>
-                    {reviews[activeIndex].role}
+                    {displayReviews[activeIndex]?.role}
                   </p>
                 </div>
               </div>
@@ -218,7 +243,7 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ language }) => {
           gap: '8px',
           marginTop: '28px'
         }}>
-          {reviews.map((_, index) => (
+          {displayReviews.map((_, index) => (
             <button
               key={index}
               onClick={() => setActiveIndex(index)}

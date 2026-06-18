@@ -14,6 +14,8 @@ export const translations = {
     navWorkflow: "Workflow",
     navDoctors: "Doctors",
     navReviews: "Reviews",
+    navGallery: "Gallery",
+    navNews: "News",
     navContact: "Contact",
 
     // Hero Section
@@ -215,6 +217,8 @@ export const translations = {
     navWorkflow: "प्रक्रिया",
     navDoctors: "डॉक्टर",
     navReviews: "अभिप्राय",
+    navGallery: "गॅलरी",
+    navNews: "नवीन घडामोडी",
     navContact: "संपर्क",
 
     // Hero Section
