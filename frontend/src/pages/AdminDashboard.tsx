@@ -26,7 +26,6 @@ import {
   Filter, 
   CheckCircle, 
   Clock, 
-  XCircle, 
   Image as ImageIcon, 
   ExternalLink,
   ChevronRight,
@@ -36,8 +35,7 @@ import {
   Newspaper,
   Star,
   MessageSquare,
-  BarChart3,
-  Loader2
+  BarChart3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { printVoucher } from '../components/Modals';
@@ -98,7 +96,7 @@ const AdminDashboard: React.FC = () => {
   const [testimonials, setTestimonials] = useState<any[]>([]);
   const [gallery, setGallery] = useState<any[]>([]);
   const [contacts, setContacts] = useState<any[]>([]);
-  const [stats, setStats] = useState({
+  const [, setStats] = useState({
     beds: 1200,
     doctors: 150,
     campusArea: '7 Lakh+ Sq.Ft.',
@@ -379,7 +377,7 @@ const AdminDashboard: React.FC = () => {
 
     setLoading(true);
     try {
-      let res;
+      let res: any;
       if (editingDoctorId) {
         res = await doctorsApi.update(editingDoctorId, formData);
         if (res.success) {
@@ -485,7 +483,7 @@ const AdminDashboard: React.FC = () => {
 
     setLoading(true);
     try {
-      let res;
+      let res: any;
       if (editingDeptId) {
         res = await departmentsApi.update(editingDeptId, formData);
         if (res.success) {
@@ -579,7 +577,7 @@ const AdminDashboard: React.FC = () => {
 
     setLoading(true);
     try {
-      let res;
+      let res: any;
       if (editingNewsId) {
         res = await newsApi.update(editingNewsId, formData);
         if (res.success) {
@@ -664,7 +662,7 @@ const AdminDashboard: React.FC = () => {
 
     setLoading(true);
     try {
-      let res;
+      let res: any;
       if (editingTestimonialId) {
         res = await testimonialsApi.update(editingTestimonialId, formData);
         if (res.success) {
@@ -1029,10 +1027,20 @@ const AdminDashboard: React.FC = () => {
                 <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Departments</span>
-                    <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--primary)', fontWeight: 800 }}>{totalDepts}</h3>
+                    <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--cyan-hover)', fontWeight: 800 }}>{totalDepts}</h3>
                   </div>
                   <div style={{ background: 'var(--cyan-light)', color: 'var(--cyan-hover)', padding: '10px', borderRadius: '10px' }}>
                     <Layers size={20} />
+                  </div>
+                </div>
+
+                <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total Appointments</span>
+                    <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--med-blue)', fontWeight: 800 }}>{totalApps}</h3>
+                  </div>
+                  <div style={{ background: 'var(--med-blue-light)', color: 'var(--med-blue)', padding: '10px', borderRadius: '10px' }}>
+                    <Calendar size={20} />
                   </div>
                 </div>
 
