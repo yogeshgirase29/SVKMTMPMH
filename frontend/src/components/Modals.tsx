@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, User, Phone, Mail, FileText, CheckCircle2, Download, Search, Lock, AlertCircle, Printer, Loader2 } from 'lucide-react';
+import { X, Calendar, User, Phone, Mail, FileText, CheckCircle2, Download, Search, Lock, AlertCircle, Printer, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { type Language, translations } from '../utils/translations';
 import { doctorsApi, departmentsApi, appointmentsApi } from '../services/api';
@@ -1197,7 +1197,6 @@ export const printVoucher = (app: any, language: Language = 'en') => {
 };
 
 export const AppointmentStatusModal: React.FC<ModalProps> = ({ isOpen, onClose, language }) => {
-  const t = translations[language];
 
   const [appointmentNo, setAppointmentNo] = useState('');
   const [searchStatus, setSearchStatus] = useState<'idle' | 'searching' | 'success' | 'failed'>('idle');

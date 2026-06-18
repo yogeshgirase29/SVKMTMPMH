@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { type Language, translations } from '../utils/translations';
+import { type Language } from '../utils/translations';
 import { galleryApi } from '../services/api';
-import { Image as ImageIcon, ExternalLink, Loader2 } from 'lucide-react';
+import { Image as ImageIcon, Loader2 } from 'lucide-react';
 
 interface GalleryProps {
   language: Language;
@@ -11,7 +11,6 @@ interface GalleryProps {
 type CategoryType = 'All' | 'Hospital' | 'Events' | 'Equipment' | 'Facilities';
 
 export const Gallery: React.FC<GalleryProps> = ({ language }) => {
-  const t = translations[language];
   const [images, setImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<CategoryType>('All');

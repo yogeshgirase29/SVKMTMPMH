@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, FileText, CheckCircle2, Shield, HeartPulse, Activity } from 'lucide-react';
+import { Calendar, CheckCircle2, HeartPulse, Shield, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { type Language, translations } from '../utils/translations';
 

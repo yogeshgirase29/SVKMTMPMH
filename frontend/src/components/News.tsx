@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { type Language, translations } from '../utils/translations';
+import { type Language } from '../utils/translations';
 import { newsApi } from '../services/api';
 import { Calendar, FileText, Loader2, ArrowRight } from 'lucide-react';
 
@@ -9,7 +9,6 @@ interface NewsProps {
 }
 
 export const News: React.FC<NewsProps> = ({ language }) => {
-  const t = translations[language];
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
