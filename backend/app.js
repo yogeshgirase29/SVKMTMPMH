@@ -44,6 +44,13 @@ app.use(methodOverride('_method'));
 // Flash messages (often used for server-side views, but initialized as requested)
 app.use(flash());
 
+const isProd = process.env.NODE_ENV === 'production';
+
+// Trust proxy for secure cookies behind reverse proxies (Render, Heroku, etc.)
+if (isProd) {
+  app.set('trust proxy', 1);
+}
+
 // Express Session configuration with MongoDB storage
 app.use(session({
   secret: process.env.SESSION_SECRET || 'hospitalSessionSecret123!',
@@ -56,7 +63,8 @@ app.use(session({
   cookie: {
     maxAge: 1000 * 60 * 60 * 24, // 24 hours
     httpOnly: true,
-    secure: false // Set to true if using HTTPS in production
+    secure: isProd, // Set to true if using HTTPS in production
+    sameSite: isProd ? 'none' : 'lax' // Required for cross-domain cookies in production
   }
 }));
 
