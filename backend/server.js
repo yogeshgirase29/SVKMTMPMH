@@ -9,7 +9,8 @@ const MONGO_URI = process.env.MONGO_URL || process.env.MONGO_URI || 'mongodb://1
 // Connect to MongoDB
 mongoose.connect(MONGO_URI)
   .then(() => {
-    console.log('Successfully connected to local MongoDB.');
+    const isLocal = MONGO_URI.includes('127.0.0.1') || MONGO_URI.includes('localhost');
+    console.log(`Successfully connected to ${isLocal ? 'local' : 'Atlas'} MongoDB.`);
     app.listen(PORT, () => {
       console.log(`Express server running on http://localhost:${PORT}`);
     });
