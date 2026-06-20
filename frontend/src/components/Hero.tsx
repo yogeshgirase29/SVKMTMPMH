@@ -13,8 +13,8 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
   const t = translations[language];
 
   return (
-    <section 
-      id="home" 
+    <section
+      id="home"
       style={{
         padding: '140px 0 90px 0',
         position: 'relative',
@@ -33,9 +33,9 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
           alignItems: 'center',
           gap: '48px'
         }} className="hero-grid">
-          
+
           {/* Left Text Block */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
@@ -83,7 +83,7 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
 
             {/* Buttons */}
             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '8px' }} className="hero-btns">
-              <button 
+              <button
                 onClick={onOpenAppointment}
                 className="btn btn-primary"
                 style={{ padding: '14px 28px', gap: '8px', fontSize: '0.95rem' }}
@@ -111,7 +111,7 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
           </motion.div>
 
           {/* Right Graphics Block */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
@@ -138,9 +138,9 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
                 border: '1px solid rgba(255,255,255,0.7)',
                 position: 'relative'
               }}>
-                <img 
-                  src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=700" 
-                  alt="Specialist Doctor Consulting" 
+                <img
+                  src="https://res.cloudinary.com/dqhvevsha/image/upload/v1781928905/hospital-doctors/nmrdydhy4hxu9whyqkhi.jpg"
+                  alt="Specialist Doctor Consulting"
                   style={{
                     width: '100%',
                     height: '100%',
@@ -159,7 +159,7 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
               </div>
 
               {/* Float Widget 1: Lab Speed */}
-              <motion.div 
+              <motion.div
                 animate={{ y: [0, -10, 0] }}
                 transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
                 className="glass-panel"
@@ -193,7 +193,7 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
               </motion.div>
 
               {/* Float Widget 2: Security */}
-              <motion.div 
+              <motion.div
                 animate={{ y: [0, 10, 0] }}
                 transition={{ repeat: Infinity, duration: 4.5, ease: "easeInOut", delay: 0.5 }}
                 className="glass-panel"
