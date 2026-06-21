@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, User, Phone, Mail, FileText, CheckCircle2, Download, Search, Lock, AlertCircle, Printer, Loader2 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { X, Calendar, Phone, Mail, FileText, CheckCircle2, Download, Search, Lock, AlertCircle, Printer, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import { type Language, translations } from '../utils/translations';
 import { doctorsApi, departmentsApi, appointmentsApi } from '../services/api';
+import { getISTDateString, formatISTDate } from '../utils/dateUtils';
 
 interface ModalProps {
   isOpen: boolean;
@@ -10,18 +13,102 @@ interface ModalProps {
   language: Language;
 }
 
+interface AppointmentFormInput {
+  title: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  dateOfBirth: string;
+  age: number;
+  mobile: string;
+  email?: string;
+  department: string;
+  doctor: string;
+  appointmentDate: string;
+  appointmentSlot: string;
+  message?: string;
+}
+
+const localT = {
+  en: {
+    title: "Patient Title *",
+    selectTitle: "Select Title",
+    firstName: "First Name *",
+    middleName: "Middle Name",
+    lastName: "Last Name *",
+    dob: "Date of Birth *",
+    age: "Age",
+    mobile: "Mobile Number *",
+    email: "Email Address (Optional)",
+    department: "Service Department *",
+    doctor: "Preferred Specialist *",
+    date: "Preferred Date *",
+    slot: "Preferred Time Slot *",
+    symptoms: "Symptoms / Special Instructions (Optional)",
+    symptomsPlaceholder: "Describe your symptoms or special requirements.",
+    downloadPdf: "Download PDF",
+    close: "Close",
+    slotBooked: "Booked",
+    slotPast: "Unavailable"
+  },
+  mr: {
+    title: "रुग्णाचे शीर्षक *",
+    selectTitle: "शीर्षक निवडा",
+    firstName: "पहिले नाव *",
+    middleName: "मधले नाव",
+    lastName: "आडनाव *",
+    dob: "जन्मतारीख *",
+    age: "वय",
+    mobile: "मोबाईल नंबर *",
+    email: "ईमेल पत्ता (पर्यायी)",
+    department: "वैद्यकीय विभाग *",
+    doctor: "पसंतीचे डॉक्टर *",
+    date: "पसंतीची तारीख *",
+    slot: "पसंतीची वेळ स्लॉट *",
+    symptoms: "लक्षणे / विशेष सूचना (पर्यायी)",
+    symptomsPlaceholder: "तुमची लक्षणे किंवा विशेष आवश्यकतांचे वर्णन करा.",
+    downloadPdf: "पीडीएफ डाउनलोड करा",
+    close: "बंद करा",
+    slotBooked: "आरक्षित",
+    slotPast: "अनुपलब्ध"
+  }
+};
+
+const calculateAge = (dobVal: string) => {
+  if (!dobVal) return 0;
+  const todayIST = getISTDateString();
+  const [todayYear, todayMonth, todayDay] = todayIST.split('-').map(Number);
+  const [birthYear, birthMonth, birthDay] = dobVal.split('-').map(Number);
+  
+  let computedAge = todayYear - birthYear;
+  const m = todayMonth - birthMonth;
+  if (m < 0 || (m === 0 && todayDay < birthDay)) {
+    computedAge--;
+  }
+  return computedAge;
+};
+
 export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, language }) => {
   const t = translations[language];
+  const lt = localT[language];
 
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    department: 'General Medicine',
-    doctor: '',
-    date: '',
-    time: '09:00 AM',
-    notes: ''
+  const { register, handleSubmit, watch, setValue, getValues, reset, formState: { errors } } = useForm<AppointmentFormInput>({
+    mode: 'onChange',
+    defaultValues: {
+      title: '',
+      firstName: '',
+      middleName: '',
+      lastName: '',
+      dateOfBirth: '',
+      age: 0,
+      mobile: '',
+      email: '',
+      department: 'General Medicine',
+      doctor: '',
+      appointmentDate: '',
+      appointmentSlot: '',
+      message: ''
+    }
   });
 
   const [dbDepartments, setDbDepartments] = useState<any[]>([]);
@@ -32,10 +119,16 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
   const [successData, setSuccessData] = useState<any>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [slotsList, setSlotsList] = useState<{ slot: string; status: 'Available' | 'Booked' | 'Past'; selectable: boolean }[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
+  const [ageWarning, setAgeWarning] = useState('');
 
-  // Fetch doctors and departments on modal open
+  const watchDoctor = watch('doctor');
+  const watchDate = watch('appointmentDate');
+  const watchTitle = watch('title');
+  const watchDOB = watch('dateOfBirth');
+
+  // Load departments and doctors
   useEffect(() => {
     if (isOpen) {
       const loadFields = async () => {
@@ -46,37 +139,46 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
             departmentsApi.getAll(),
             doctorsApi.getAll(true) // Available only
           ]);
-          
+
           if (deptRes.success && deptRes.departments.length > 0) {
             setDbDepartments(deptRes.departments);
             const initialDept = deptRes.departments[0].departmentName.en;
-            
+
             if (docRes.success && docRes.doctors.length > 0) {
               setDbDoctors(docRes.doctors);
-              // Find first doctor in that department
               const matchedDoc = docRes.doctors.find((d: any) => d.department.toLowerCase() === initialDept.toLowerCase());
               const selectedDoc = matchedDoc ? matchedDoc.doctorName.en : docRes.doctors[0].doctorName.en;
-              
-              setFormData({
-                name: '',
-                phone: '',
+
+              reset({
+                title: '',
+                firstName: '',
+                middleName: '',
+                lastName: '',
+                dateOfBirth: '',
+                age: 0,
+                mobile: '',
                 email: '',
                 department: initialDept,
                 doctor: selectedDoc,
-                date: '',
-                time: '',
-                notes: ''
+                appointmentDate: '',
+                appointmentSlot: '',
+                message: ''
               });
             } else {
-              setFormData({
-                name: '',
-                phone: '',
+              reset({
+                title: '',
+                firstName: '',
+                middleName: '',
+                lastName: '',
+                dateOfBirth: '',
+                age: 0,
+                mobile: '',
                 email: '',
                 department: initialDept,
                 doctor: '',
-                date: '',
-                time: '',
-                notes: ''
+                appointmentDate: '',
+                appointmentSlot: '',
+                message: ''
               });
             }
           }
@@ -89,30 +191,52 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
       };
       loadFields();
     }
-  }, [isOpen, language]);
+  }, [isOpen, language, reset]);
 
-  // Fetch available slots when date or doctor changes
+  // Load slots when doctor or date changes
   useEffect(() => {
     const loadSlots = async () => {
-      if (!formData.date || !formData.doctor || dbDoctors.length === 0) {
-        setAvailableSlots([]);
+      if (!watchDate || !watchDoctor || dbDoctors.length === 0) {
+        setSlotsList([]);
         return;
       }
-      
+
       setSlotsLoading(true);
       try {
-        const doc = dbDoctors.find((d: any) => d.doctorName.en.toLowerCase() === formData.doctor.toLowerCase());
+        const doc = dbDoctors.find((d: any) => d.doctorName.en.toLowerCase() === watchDoctor.toLowerCase());
         if (doc) {
-          const res = await appointmentsApi.getAvailableSlots(doc._id, formData.date);
+          const res = await appointmentsApi.getAvailableSlots(doc._id, watchDate);
           if (res.success) {
-            setAvailableSlots(res.slots);
-            // Auto-select first slot if available and not set or if current selected slot is no longer available
-            if (res.slots.length > 0) {
-              if (!formData.time || !res.slots.includes(formData.time)) {
-                setFormData(prev => ({ ...prev, time: res.slots[0] }));
+            if (res.slotsData) {
+              setSlotsList(res.slotsData);
+              const currentSlot = getValues('appointmentSlot');
+              const foundSlot = res.slotsData.find((s: any) => s.slot === currentSlot);
+              if (!foundSlot || !foundSlot.selectable) {
+                setValue('appointmentSlot', '', { shouldValidate: true });
               }
             } else {
-              setFormData(prev => ({ ...prev, time: '' }));
+              // Fallback
+              const allSlots = [
+                '08:00 AM', '08:30 AM', '09:00 AM', '09:30 AM',
+                '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
+                '12:00 PM', '12:30 PM', '01:00 PM', '01:30 PM',
+                '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM',
+                '04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM'
+              ];
+              const activeSlots = res.slots || [];
+              const reconstructed = allSlots.map(slot => {
+                const isAvailable = activeSlots.includes(slot);
+                return {
+                  slot,
+                  status: isAvailable ? ('Available' as const) : ('Booked' as const),
+                  selectable: isAvailable
+                };
+              });
+              setSlotsList(reconstructed);
+              const currentSlot = getValues('appointmentSlot');
+              if (!activeSlots.includes(currentSlot)) {
+                setValue('appointmentSlot', '', { shouldValidate: true });
+              }
             }
           }
         }
@@ -124,50 +248,70 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
     };
 
     loadSlots();
-  }, [formData.date, formData.doctor, dbDoctors]);
+  }, [watchDate, watchDoctor, dbDoctors, setValue, getValues]);
 
-  // Handle department change - auto filter/select matching doctor
-  const handleDepartmentChange = (deptName: string) => {
-    setFormData(prev => {
-      const matchedDoc = dbDoctors.find((d: any) => d.department.toLowerCase() === deptName.toLowerCase());
-      return {
-        ...prev,
-        department: deptName,
-        doctor: matchedDoc ? matchedDoc.doctorName.en : (dbDoctors[0]?.doctorName.en || ''),
-        time: ''
-      };
-    });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name || !formData.phone || !formData.date || !formData.doctor || !formData.department || !formData.time) {
-      setErrorMsg(language === 'en' ? 'Please fill in all mandatory fields, including the time slot.' : 'कृपया वेळ स्लॉटसह सर्व आवश्यक फील्ड भरा.');
+  // Sync Age and title age recommendations warning
+  useEffect(() => {
+    if (!watchDOB || !watchTitle) {
+      setAgeWarning('');
       return;
     }
-    
+    const computedAge = calculateAge(watchDOB);
+    setValue('age', computedAge, { shouldValidate: true });
+
+    let warning = '';
+    if (watchTitle === 'Baby' && computedAge >= 5) {
+      warning = language === 'en'
+        ? "Title 'Baby' is typically recommended for children under 5 years."
+        : "५ वर्षांखालील मुलांसाठी 'Baby' शीर्षक वापरणे शिफारसित आहे.";
+    } else if (watchTitle === 'Master' && computedAge >= 18) {
+      warning = language === 'en'
+        ? "Title 'Master' is typically recommended for male children under 18 years."
+        : "१८ वर्षांखालील मुलांसाठी 'Master' शीर्षक वापरणे शिफारसित आहे.";
+    } else if (watchTitle === 'Mr.' && computedAge < 18) {
+      warning = language === 'en'
+        ? "Title 'Mr.' is recommended for male patients aged 18 years or above."
+        : "१८ वर्षे किंवा त्यावरील पुरुषांसाठी 'Mr.' शीर्षक वापरणे शिफारसित आहे.";
+    }
+    setAgeWarning(warning);
+  }, [watchTitle, watchDOB, language, setValue]);
+
+  // Handle department change
+  const handleDepartmentChange = (deptName: string) => {
+    const matchedDoc = dbDoctors.find((d: any) => d.department.toLowerCase() === deptName.toLowerCase());
+    setValue('department', deptName);
+    setValue('doctor', matchedDoc ? matchedDoc.doctorName.en : (dbDoctors[0]?.doctorName.en || ''), { shouldValidate: true });
+    setValue('appointmentSlot', '', { shouldValidate: true });
+  };
+
+  const onSubmit = async (data: AppointmentFormInput) => {
     setSubmitLoading(true);
     setErrorMsg('');
 
     try {
       const selectedDept = dbDepartments.find(
-        (d: any) => d.departmentName.en.toLowerCase() === formData.department.toLowerCase()
+        (d: any) => d.departmentName.en.toLowerCase() === data.department.toLowerCase()
       );
       const selectedDoc = dbDoctors.find(
-        (d: any) => d.doctorName.en.toLowerCase() === formData.doctor.toLowerCase()
+        (d: any) => d.doctorName.en.toLowerCase() === data.doctor.toLowerCase()
       );
 
       const payload = {
-        patientName: formData.name,
-        mobile: formData.phone,
-        email: formData.email,
-        department: formData.department,
-        departmentMr: selectedDept ? selectedDept.departmentName.mr : formData.department,
-        doctor: formData.doctor,
-        doctorMr: selectedDoc ? selectedDoc.doctorName.mr : formData.doctor,
-        appointmentDate: formData.date,
-        appointmentSlot: formData.time,
-        message: formData.notes
+        title: data.title,
+        firstName: data.firstName,
+        middleName: data.middleName || '',
+        lastName: data.lastName,
+        dateOfBirth: data.dateOfBirth,
+        age: Number(data.age),
+        mobile: data.mobile,
+        email: data.email || undefined,
+        department: data.department,
+        departmentMr: selectedDept ? selectedDept.departmentName.mr : data.department,
+        doctor: data.doctor,
+        doctorMr: selectedDoc ? selectedDoc.doctorName.mr : data.doctor,
+        appointmentDate: data.appointmentDate,
+        appointmentSlot: data.appointmentSlot,
+        message: data.message
       };
 
       const res = await appointmentsApi.create(payload);
@@ -178,7 +322,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
     } catch (err: any) {
       console.error(err);
       setErrorMsg(
-        err.response?.data?.message || 
+        err.response?.data?.message ||
         (language === 'en' ? 'Failed to submit appointment. Check connection.' : 'अपॉइंटमेंट पाठवण्यात अयशस्वी. कनेक्शन तपासा.')
       );
     } finally {
@@ -187,26 +331,32 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
   };
 
   const handleReset = () => {
-    setFormData({
-      name: '',
-      phone: '',
+    reset({
+      title: '',
+      firstName: '',
+      middleName: '',
+      lastName: '',
+      dateOfBirth: '',
+      age: 0,
+      mobile: '',
       email: '',
       department: dbDepartments[0]?.departmentName.en || 'General Medicine',
       doctor: dbDoctors[0]?.doctorName.en || '',
-      date: '',
-      time: '',
-      notes: ''
+      appointmentDate: '',
+      appointmentSlot: '',
+      message: ''
     });
     setIsSubmitted(false);
     setSuccessData(null);
     setErrorMsg('');
-    setAvailableSlots([]);
+    setSlotsList([]);
+    setAgeWarning('');
     onClose();
   };
 
-  // Filter doctors list based on selected department
+  const watchDept = watch('department');
   const filteredDoctors = dbDoctors.filter(
-    (doc: any) => doc.department.toLowerCase() === formData.department.toLowerCase()
+    (doc: any) => doc.department.toLowerCase() === watchDept.toLowerCase()
   );
   const displayDoctors = filteredDoctors.length > 0 ? filteredDoctors : dbDoctors;
 
@@ -214,7 +364,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
     <AnimatePresence>
       {isOpen && (
         <div className="modal-overlay">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -234,7 +384,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                 <h3 style={{ color: 'white', fontSize: '1.4rem' }}>{t.modalAppTitle}</h3>
                 <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', marginTop: '4px' }}>{t.modalAppSubtitle}</p>
               </div>
-              <button 
+              <button
                 onClick={onClose}
                 style={{
                   background: 'rgba(255,255,255,0.2)',
@@ -256,7 +406,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
 
             {/* Content Body */}
             <div style={{ padding: '24px', overflowY: 'auto' }}>
-              
+
               {loading ? (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '60px 0' }}>
                   <Loader2 size={36} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
@@ -268,79 +418,238 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                   <button onClick={onClose} className="btn btn-secondary">{t.modalClose}</button>
                 </div>
               ) : !isSubmitted ? (
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  
-                  {/* Name */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t.modalAppName}</label>
-                    <div style={{ position: 'relative' }}>
-                      <User size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                      <input 
-                        type="text" 
-                        required
-                        placeholder={language === 'en' ? 'John Doe' : 'उदा. जॉन डो'}
-                        value={formData.name}
-                        onChange={e => setFormData({ ...formData, name: e.target.value })}
+                <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                  {/* Title & Name Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 1fr 1fr', gap: '12px' }} className="name-input-grid">
+                    {/* Patient Title */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.title}</label>
+                      <select
+                        {...register('title', { required: "Title is required" })}
                         style={{
                           width: '100%',
-                          padding: '12px 12px 12px 38px',
+                          padding: '12px',
                           borderRadius: 'var(--radius-md)',
-                          border: '1px solid var(--border-muted)',
+                          border: errors.title ? '1px solid #ef4444' : '1px solid var(--border-muted)',
+                          fontSize: '0.95rem',
+                          backgroundColor: 'white'
+                        }}
+                      >
+                        <option value="">{lt.selectTitle}</option>
+                        <option value="Mr.">Mr.</option>
+                        <option value="Mrs.">Mrs.</option>
+                        <option value="Miss">Miss</option>
+                        <option value="Ms.">Ms.</option>
+                        <option value="Master">Master</option>
+                        <option value="Dr.">Dr.</option>
+                        <option value="Prof.">Prof.</option>
+                        <option value="Baby">Baby</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    {/* First Name */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.firstName}</label>
+                      <input
+                        type="text"
+                        placeholder="John"
+                        {...register('firstName', {
+                          required: "First name is required",
+                          minLength: { value: 2, message: "Min 2 chars" },
+                          maxLength: { value: 50, message: "Max 50 chars" },
+                          pattern: { value: /^[a-zA-Z\s]+$/, message: "Alphabets only" }
+                        })}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: 'var(--radius-md)',
+                          border: errors.firstName ? '1px solid #ef4444' : '1px solid var(--border-muted)',
+                          fontSize: '0.95rem'
+                        }}
+                      />
+                    </div>
+
+                    {/* Middle Name */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.middleName}</label>
+                      <input
+                        type="text"
+                        placeholder="Robert"
+                        {...register('middleName', {
+                          maxLength: { value: 50, message: "Max 50 chars" },
+                          pattern: { value: /^[a-zA-Z\s]*$/, message: "Alphabets only" }
+                        })}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: 'var(--radius-md)',
+                          border: errors.middleName ? '1px solid #ef4444' : '1px solid var(--border-muted)',
+                          fontSize: '0.95rem'
+                        }}
+                      />
+                    </div>
+
+                    {/* Last Name */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.lastName}</label>
+                      <input
+                        type="text"
+                        placeholder="Doe"
+                        {...register('lastName', {
+                          required: "Last name is required",
+                          minLength: { value: 2, message: "Min 2 chars" },
+                          maxLength: { value: 50, message: "Max 50 chars" },
+                          pattern: { value: /^[a-zA-Z\s]+$/, message: "Alphabets only" }
+                        })}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: 'var(--radius-md)',
+                          border: errors.lastName ? '1px solid #ef4444' : '1px solid var(--border-muted)',
                           fontSize: '0.95rem'
                         }}
                       />
                     </div>
                   </div>
 
-                  {/* Contact Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t.modalAppPhone}</label>
-                      <div style={{ position: 'relative' }}>
-                        <Phone size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                        <input 
-                          type="tel" 
-                          required
-                          placeholder={language === 'en' ? '+91 99693 79023' : '+९१ ९९६९३ ७९०२३'}
-                          value={formData.phone}
-                          onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                          style={{
-                            width: '100%',
-                            padding: '12px 12px 12px 38px',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--border-muted)',
-                            fontSize: '0.95rem'
-                          }}
-                        />
-                      </div>
+                  {/* Errors Row for Names */}
+                  {(errors.title || errors.firstName || errors.middleName || errors.lastName) && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', background: '#fef2f2', padding: '8px 12px', borderRadius: '6px', border: '1px solid #fee2e2' }}>
+                      {errors.title && <span style={{ color: '#ef4444', fontSize: '0.78rem' }}>• {errors.title.message}</span>}
+                      {errors.firstName && <span style={{ color: '#ef4444', fontSize: '0.78rem' }}>• First Name: {errors.firstName.message}</span>}
+                      {errors.middleName && <span style={{ color: '#ef4444', fontSize: '0.78rem' }}>• Middle Name: {errors.middleName.message}</span>}
+                      {errors.lastName && <span style={{ color: '#ef4444', fontSize: '0.78rem' }}>• Last Name: {errors.lastName.message}</span>}
                     </div>
+                  )}
+
+                  {/* DOB & Age Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '16px' }}>
+                    {/* DOB */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t.modalAppEmail}</label>
-                      <div style={{ position: 'relative' }}>
-                        <Mail size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                        <input 
-                          type="email" 
-                          placeholder="john@example.com"
-                          value={formData.email}
-                          onChange={e => setFormData({ ...formData, email: e.target.value })}
-                          style={{
-                            width: '100%',
-                            padding: '12px 12px 12px 38px',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--border-muted)',
-                            fontSize: '0.95rem'
-                          }}
-                        />
-                      </div>
+                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.dob}</label>
+                      <input
+                        type="date"
+                        max={getISTDateString()}
+                        {...register('dateOfBirth', {
+                          required: "Date of birth is required",
+                          validate: {
+                            notInFuture: (val) => val <= getISTDateString() || "DOB cannot be in the future",
+                            ageRange: (val) => {
+                              const age = calculateAge(val);
+                              return (age >= 0 && age <= 120) || "Age must be between 0 and 120 years";
+                            }
+                          }
+                        })}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: 'var(--radius-md)',
+                          border: errors.dateOfBirth ? '1px solid #ef4444' : '1px solid var(--border-muted)',
+                          fontSize: '0.95rem'
+                        }}
+                      />
+                      {errors.dateOfBirth && <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '2px' }}>{errors.dateOfBirth.message}</span>}
+                    </div>
+
+                    {/* Calculated Age */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.age}</label>
+                      <input
+                        type="number"
+                        readOnly
+                        {...register('age')}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--border-muted)',
+                          fontSize: '0.95rem',
+                          backgroundColor: '#f8fafc',
+                          textAlign: 'center',
+                          color: 'var(--text-secondary)',
+                          fontWeight: 700
+                        }}
+                      />
                     </div>
                   </div>
 
-                  {/* Dropdowns Grid */}
+                  {/* Title Recommended Age Warnings */}
+                  {ageWarning && (
+                    <div style={{
+                      display: 'flex',
+                      gap: '8px',
+                      alignItems: 'center',
+                      background: '#fffbeb',
+                      border: '1px solid #fef3c7',
+                      color: '#d97706',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      fontSize: '0.82rem',
+                      fontWeight: 600
+                    }}>
+                      <AlertCircle size={15} />
+                      <span>{ageWarning}</span>
+                    </div>
+                  )}
+
+                  {/* Contact Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    {/* Mobile */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.mobile}</label>
+                      <div style={{ position: 'relative' }}>
+                        <Phone size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input
+                          type="tel"
+                          placeholder="e.g. 9876543210"
+                          {...register('mobile', {
+                            required: "Mobile number is required",
+                            pattern: { value: /^[6-9]\d{9}$/, message: "Must be a valid 10-digit Indian number" }
+                          })}
+                          style={{
+                            width: '100%',
+                            padding: '12px 12px 12px 38px',
+                            borderRadius: 'var(--radius-md)',
+                            border: errors.mobile ? '1px solid #ef4444' : '1px solid var(--border-muted)',
+                            fontSize: '0.95rem'
+                          }}
+                        />
+                      </div>
+                      {errors.mobile && <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '2px' }}>{errors.mobile.message}</span>}
+                    </div>
+
+                    {/* Email */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.email}</label>
+                      <div style={{ position: 'relative' }}>
+                        <Mail size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input
+                          type="text"
+                          placeholder="john@example.com"
+                          {...register('email', {
+                            pattern: { value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, message: "Invalid email format" }
+                          })}
+                          style={{
+                            width: '100%',
+                            padding: '12px 12px 12px 38px',
+                            borderRadius: 'var(--radius-md)',
+                            border: errors.email ? '1px solid #ef4444' : '1px solid var(--border-muted)',
+                            fontSize: '0.95rem'
+                          }}
+                        />
+                      </div>
+                      {errors.email && <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '2px' }}>{errors.email.message}</span>}
+                    </div>
+                  </div>
+
+                  {/* Service Department & Specialist */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t.modalAppDept}</label>
-                      <select 
-                        value={formData.department}
+                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.department}</label>
+                      <select
+                        value={watchDept}
                         onChange={e => handleDepartmentChange(e.target.value)}
                         style={{
                           width: '100%',
@@ -358,55 +667,67 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                         ))}
                       </select>
                     </div>
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t.modalAppDoc}</label>
-                      <select 
-                        value={formData.doctor}
-                        onChange={e => setFormData({ ...formData, doctor: e.target.value })}
+                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.doctor}</label>
+                      <select
+                        {...register('doctor', { required: "Specialist is required" })}
                         style={{
                           width: '100%',
                           padding: '12px',
                           borderRadius: 'var(--radius-md)',
-                          border: '1px solid var(--border-muted)',
+                          border: errors.doctor ? '1px solid #ef4444' : '1px solid var(--border-muted)',
                           fontSize: '0.95rem',
                           backgroundColor: 'white'
                         }}
                       >
                         {displayDoctors.map(doc => (
                           <option key={doc._id} value={doc.doctorName.en}>
-                            {doc.doctorName[language] || doc.doctorName.en} ({doc.specialization[language] || doc.specialization.en})
+                            {doc.doctorName[language] || doc.doctorName.en} ({doc.specialization[language] || doc.specialization.en}) - {doc.qualification[language] || doc.qualification.en}
                           </option>
                         ))}
                       </select>
                     </div>
                   </div>
 
-                  {/* Date & Time Grid */}
+                  {/* Preferred Date & Available Slots */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {/* Preferred Date */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t.modalAppDate}</label>
+                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.date}</label>
                       <div style={{ position: 'relative' }}>
                         <Calendar size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                        <input 
-                          type="date" 
-                          required
-                          value={formData.date}
-                          min={new Date().toISOString().split('T')[0]}
-                          onChange={e => setFormData({ ...formData, date: e.target.value })}
+                        <input
+                          type="date"
+                          min={getISTDateString()}
+                          max={getISTDateString(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000))}
+                          {...register('appointmentDate', {
+                            required: "Date is required",
+                            validate: {
+                              notPast: (val) => val >= getISTDateString() || "Past dates are not allowed",
+                              next90Days: (val) => {
+                                const maxDateStr = getISTDateString(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000));
+                                return val <= maxDateStr || "Booking allowed up to 90 days in advance";
+                              }
+                            }
+                          })}
                           style={{
                             width: '100%',
                             padding: '12px 12px 12px 38px',
                             borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--border-muted)',
+                            border: errors.appointmentDate ? '1px solid #ef4444' : '1px solid var(--border-muted)',
                             fontSize: '0.95rem'
                           }}
                         />
                       </div>
+                      {errors.appointmentDate && <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '2px' }}>{errors.appointmentDate.message}</span>}
                     </div>
 
+                    {/* Slots Grid */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t.modalAppSlot}</label>
-                      {!formData.date ? (
+                      <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.slot}</label>
+
+                      {!watchDate ? (
                         <div style={{
                           fontSize: '0.88rem',
                           color: 'var(--text-muted)',
@@ -434,7 +755,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                             {language === 'en' ? 'Fetching available slots...' : 'उपलब्ध वेळा शोधत आहे...'}
                           </span>
                         </div>
-                      ) : availableSlots.length === 0 ? (
+                      ) : slotsList.length === 0 ? (
                         <div style={{
                           fontSize: '0.88rem',
                           color: '#ef4444',
@@ -450,59 +771,93 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                       ) : (
                         <div style={{
                           display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fill, minmax(92px, 1fr))',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(95px, 1fr))',
                           gap: '8px',
                           maxHeight: '180px',
                           overflowY: 'auto',
-                          padding: '4px',
+                          padding: '6px',
                           border: '1px solid var(--border-muted)',
                           borderRadius: '8px',
                           background: 'rgba(0,0,0,0.01)'
                         }} className="slots-scroll-grid">
-                          {availableSlots.map(slot => (
-                            <button
-                              key={slot}
-                              type="button"
-                              onClick={() => setFormData({ ...formData, time: slot })}
-                              style={{
-                                padding: '8px 4px',
-                                fontSize: '0.8rem',
-                                fontWeight: 700,
-                                borderRadius: '6px',
-                                border: formData.time === slot ? '2px solid var(--med-blue)' : '1px solid var(--border-muted)',
-                                background: formData.time === slot ? 'var(--med-blue-light)' : 'white',
-                                color: formData.time === slot ? 'var(--med-blue)' : 'var(--text-secondary)',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                                textAlign: 'center',
-                                boxShadow: formData.time === slot ? 'var(--shadow-sm)' : 'none'
-                              }}
-                            >
-                              {slot}
-                            </button>
-                          ))}
+                          {slotsList.map(item => {
+                            const isSelected = watch('appointmentSlot') === item.slot;
+                            let btnBg = 'white';
+                            let btnBorder = '1px solid var(--border-muted)';
+                            let btnColor = 'var(--text-secondary)';
+                            let btnCursor = 'pointer';
+
+                            if (isSelected) {
+                              btnBg = '#15803d';
+                              btnBorder = '1px solid #15803d';
+                              btnColor = 'white';
+                            } else if (item.status === 'Booked') {
+                              btnBg = '#fef2f2';
+                              btnBorder = '1px solid #fca5a5';
+                              btnColor = '#991b1b';
+                              btnCursor = 'not-allowed';
+                            } else if (item.status === 'Past') {
+                              btnBg = '#f8fafc';
+                              btnBorder = '1px solid #e2e8f0';
+                              btnColor = '#94a3b8';
+                              btnCursor = 'not-allowed';
+                            } else {
+                              // Available Slot (Green Background standard)
+                              btnBg = '#f0fdf4';
+                              btnBorder = '1px solid #bbf7d0';
+                              btnColor = '#166534';
+                            }
+
+                            return (
+                              <button
+                                key={item.slot}
+                                type="button"
+                                disabled={!item.selectable}
+                                onClick={() => setValue('appointmentSlot', item.slot, { shouldValidate: true })}
+                                style={{
+                                  padding: '8px 4px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 700,
+                                  borderRadius: '6px',
+                                  border: btnBorder,
+                                  background: btnBg,
+                                  color: btnColor,
+                                  cursor: btnCursor,
+                                  transition: 'all 0.15s ease',
+                                  textAlign: 'center',
+                                  boxShadow: isSelected ? 'var(--shadow-sm)' : 'none'
+                                }}
+                              >
+                                {item.slot}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
+                      <input type="hidden" {...register('appointmentSlot', { required: "Time slot is required" })} />
+                      {errors.appointmentSlot && <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '2px' }}>{errors.appointmentSlot.message}</span>}
                     </div>
                   </div>
 
-                  {/* Notes */}
+                  {/* Message / Symptoms */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t.modalAppNotes}</label>
-                    <textarea 
+                    <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.symptoms}</label>
+                    <textarea
                       rows={3}
-                      placeholder={t.modalAppNotesPlaceholder}
-                      value={formData.notes}
-                      onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                      placeholder={lt.symptomsPlaceholder}
+                      {...register('message', {
+                        maxLength: { value: 500, message: "Special instructions cannot exceed 500 characters" }
+                      })}
                       style={{
                         width: '100%',
                         padding: '12px',
                         borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border-muted)',
+                        border: errors.message ? '1px solid #ef4444' : '1px solid var(--border-muted)',
                         fontSize: '0.95rem',
                         resize: 'none'
                       }}
                     />
+                    {errors.message && <span style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '2px' }}>{errors.message.message}</span>}
                   </div>
 
                   {/* Error Prompt */}
@@ -514,8 +869,8 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                   )}
 
                   {/* Submit Button */}
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="btn btn-primary"
                     disabled={submitLoading}
                     style={{ width: '100%', marginTop: '10px', height: '48px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
@@ -526,7 +881,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                 </form>
               ) : (
                 /* Success Layout */
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   style={{
@@ -555,11 +910,11 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                   <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', maxWidth: '380px' }}>
                     {language === 'en' ? (
                       <>
-                        Thank you, <strong>{formData.name}</strong>. Your appointment has been booked for <strong>{new Date(successData?.appointmentDate).toLocaleDateString()}</strong> at <strong>{formData.time}</strong> with <strong>{formData.doctor}</strong>. {t.modalAppSuccessDesc}
+                        Thank you, <strong>{getValues('firstName')} {getValues('lastName')}</strong>. Your appointment has been booked for <strong>{formatISTDate(successData?.appointmentDate)}</strong> at <strong>{successData?.appointmentSlot}</strong> with <strong>{successData?.doctor}</strong>. {t.modalAppSuccessDesc}
                       </>
                     ) : (
                       <>
-                        धन्यवाद, <strong>{formData.name}</strong>. आपली अपॉइंटमेंट <strong>{new Date(successData?.appointmentDate).toLocaleDateString()}</strong> रोजी <strong>{formData.time}</strong> वाजता <strong>{formData.doctor}</strong> यांच्यासोबत बुक झाली आहे. {t.modalAppSuccessDesc}
+                        धन्यवाद, <strong>{getValues('firstName')} {getValues('lastName')}</strong>. आपली अपॉइंटमेंट <strong>{formatISTDate(successData?.appointmentDate)}</strong> रोजी <strong>{successData?.appointmentSlot}</strong> वाजता <strong>{successData?.doctor}</strong> यांच्यासोबत बुक झाली आहे. {t.modalAppSuccessDesc}
                       </>
                     )}
                   </p>
@@ -576,26 +931,34 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: '0.9rem' }}>
                       <div><strong>{t.modalBookingRef}:</strong> <span style={{ color: 'var(--med-blue)', fontWeight: 700 }}>{successData?.appointmentId}</span></div>
                       <div><strong>{language === 'en' ? 'Dept' : 'विभाग'}:</strong> {successData?.departmentMr && language === 'mr' ? successData.departmentMr : successData?.department}</div>
-                      <div><strong>{language === 'en' ? 'Phone' : 'फोन'}:</strong> {formData.phone}</div>
+                      <div><strong>{language === 'en' ? 'Phone' : 'फोन'}:</strong> {successData?.mobile}</div>
                       <div><strong>{t.modalStatus}:</strong> <span style={{ color: '#0d9488', fontWeight: 600 }}>{successData?.status || t.modalConfirmed}</span></div>
                     </div>
                   </div>
 
                   <div style={{ display: 'flex', gap: '10px', width: '100%', justifyContent: 'center' }}>
-                    <button 
-                      onClick={() => printVoucher(successData, language)}
-                      className="btn btn-primary"
-                      style={{ width: '170px', display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center' }}
-                    >
-                      <Download size={16} />
-                      {language === 'en' ? 'Download PDF' : 'पीडीएफ डाउनलोड करा'}
-                    </button>
-                    <button 
+                    <button
                       onClick={handleReset}
                       className="btn btn-secondary"
-                      style={{ width: '120px' }}
+                      style={{ width: '100px' }}
                     >
-                      {t.modalClose}
+                      {lt.close}
+                    </button>
+                    <button
+                      onClick={() => printVoucher(successData, language)}
+                      className="btn btn-secondary"
+                      style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center', width: '140px' }}
+                    >
+                      <Printer size={16} />
+                      {language === 'en' ? 'Print Receipt' : 'पावती प्रिंट करा'}
+                    </button>
+                    <button
+                      onClick={() => appointmentsApi.downloadPdf(successData._id, successData.appointmentId)}
+                      className="btn btn-primary"
+                      style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center', width: '160px' }}
+                    >
+                      <Download size={16} />
+                      {lt.downloadPdf}
                     </button>
                   </div>
                 </motion.div>
@@ -718,7 +1081,7 @@ export const ReportModal: React.FC<ModalProps> = ({ isOpen, onClose, language })
     if (!reportCode.trim()) return;
 
     setSearchStatus('searching');
-    
+
     setTimeout(() => {
       const code = reportCode.trim().toUpperCase();
       if (mockReports[code]) {
@@ -744,12 +1107,12 @@ export const ReportModal: React.FC<ModalProps> = ({ isOpen, onClose, language })
     <AnimatePresence>
       {isOpen && (
         <div className="modal-overlay">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="modal-content glass-panel-blue"
-            style={{ 
+            style={{
               maxWidth: searchStatus === 'success' ? '720px' : '480px',
               padding: 0,
               maxHeight: '92vh'
@@ -769,7 +1132,7 @@ export const ReportModal: React.FC<ModalProps> = ({ isOpen, onClose, language })
                 <Lock size={18} style={{ color: 'var(--cyan)' }} />
                 <h3 style={{ color: 'white', fontSize: '1.25rem' }}>{t.modalPortalTitle}</h3>
               </div>
-              <button 
+              <button
                 onClick={onClose}
                 style={{
                   background: 'rgba(255,255,255,0.1)',
@@ -818,8 +1181,8 @@ export const ReportModal: React.FC<ModalProps> = ({ isOpen, onClose, language })
                       <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{t.modalPortalCodeLabel}</label>
                       <div style={{ position: 'relative' }}>
                         <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           required
                           placeholder={t.modalPortalPlaceholder}
                           value={reportCode}
@@ -835,9 +1198,9 @@ export const ReportModal: React.FC<ModalProps> = ({ isOpen, onClose, language })
                         />
                       </div>
                     </div>
-                    
-                    <button 
-                      type="submit" 
+
+                    <button
+                      type="submit"
                       className="btn btn-primary"
                       style={{ height: '46px', gap: '10px' }}
                     >
@@ -845,9 +1208,9 @@ export const ReportModal: React.FC<ModalProps> = ({ isOpen, onClose, language })
                     </button>
                   </form>
 
-                  <div style={{ 
-                    marginTop: '8px', 
-                    padding: '12px', 
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '12px',
                     borderRadius: 'var(--radius-md)',
                     background: 'var(--bg-primary)',
                     fontSize: '0.85rem',
@@ -1052,9 +1415,9 @@ export const ReportModal: React.FC<ModalProps> = ({ isOpen, onClose, language })
                       <button onClick={handlePrint} className="btn btn-secondary" style={{ padding: '10px 14px', fontSize: '0.9rem', display: 'flex', gap: '6px' }}>
                         <Printer size={16} /> {t.modalReportPrint}
                       </button>
-                      <button 
-                        onClick={() => alert(t.modalReportDownloaded)} 
-                        className="btn btn-primary" 
+                      <button
+                        onClick={() => alert(t.modalReportDownloaded)}
+                        className="btn btn-primary"
                         style={{ padding: '10px 18px', fontSize: '0.9rem', display: 'flex', gap: '6px' }}
                       >
                         <Download size={16} /> {t.modalReportPdf}
@@ -1100,19 +1463,14 @@ export const printVoucher = (app: any, language: Language = 'en') => {
   const printWindow = window.open('', '_blank', 'width=800,height=600');
   if (!printWindow) return;
 
-  const titleText = language === 'mr' ? 'अपॉइंटमेंट पावती' : 'Appointment Voucher';
-  const appNoLabel = language === 'mr' ? 'अपॉइंटमेंट संदर्भ क्रमांक' : 'Appointment Number';
-  const statusLabel = language === 'mr' ? 'स्थिती' : 'Status';
-  const patientLabel = language === 'mr' ? 'रुग्णाचे नाव' : 'Patient Name';
-  const phoneLabel = language === 'mr' ? 'मोबाईल नंबर' : 'Mobile Number';
-  const deptLabel = language === 'mr' ? 'वैद्यकीय विभाग' : 'Department';
-  const docLabel = language === 'mr' ? 'पंसतीचे डॉक्टर' : 'Specialist Doctor';
-  const dateLabel = language === 'mr' ? 'अपॉइंटमेंट तारीख' : 'Appointment Date';
-  const notesLabel = language === 'mr' ? 'विशेष सूचना / लक्षणे' : 'Instructions / Notes';
-  const footerText = language === 'mr' 
-    ? 'कृपया नियोजित वेळेच्या १५ मिनिटे आधी रुग्णालयाच्या स्वागत कक्षात ही पावती सादर करावी.' 
-    : 'Please present this voucher at the hospital reception 15 minutes before the scheduled time slot.';
-  const printBtnText = language === 'mr' ? 'प्रिंट करा / पीडीएफ म्हणून जतन करा' : 'Print / Save as PDF';
+  const titleText = language === 'mr' ? 'अपॉइंटमेंट बुकिंग पावती / Appointment Voucher' : 'Appointment Booking Voucher';
+  const statusLabel = language === 'mr' ? 'स्थिती / Status' : 'Status';
+  const patientLabel = language === 'mr' ? 'रुग्णाचे नाव / Patient Name' : 'Patient Name';
+  const phoneLabel = language === 'mr' ? 'मोबाईल नंबर / Mobile Number' : 'Mobile Number';
+  const deptLabel = language === 'mr' ? 'वैद्यकीय विभाग / Department' : 'Department';
+  const docLabel = language === 'mr' ? 'पसंतीचे डॉक्टर / Specialist Doctor' : 'Specialist Doctor';
+  const dateLabel = language === 'mr' ? 'अपॉइंटमेंट तारीख / Appointment Date' : 'Appointment Date';
+  const printBtnText = language === 'mr' ? 'प्रिंट करा / पीडीएफ म्हणून जतन करा (Print / Save PDF)' : 'Print / Save as PDF';
 
   const deptVal = language === 'mr' ? (app.departmentMr || app.department) : app.department;
   const docVal = language === 'mr' ? (app.doctorMr || app.doctor) : app.doctor;
@@ -1122,72 +1480,213 @@ export const printVoucher = (app: any, language: Language = 'en') => {
       <head>
         <title>Appointment Receipt - ${app.appointmentId}</title>
         <style>
-          body { font-family: 'Inter', system-ui, sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; }
-          .header { text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; }
-          .logo { font-size: 24px; font-weight: 800; color: #0284c7; }
-          .subtitle { font-size: 14px; color: #64748b; margin-top: 4px; }
-          .title { font-size: 20px; margin: 20px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 40px; margin-bottom: 30px; }
+          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+          body { 
+            font-family: 'Outfit', 'Inter', system-ui, sans-serif; 
+            background-color: #f8fafc; 
+            padding: 30px 15px; 
+            color: #0f172a; 
+            line-height: 1.5; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+          }
+          .voucher-container {
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            padding: 30px;
+            width: 100%;
+            max-width: 650px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            box-sizing: border-box;
+          }
+          .header { text-align: center; border-bottom: 2px solid #0284c7; padding-bottom: 16px; margin-bottom: 20px; }
+          .logo { font-size: 24px; font-weight: 800; color: #0284c7; letter-spacing: -0.5px; }
+          .logo-mr { font-size: 15px; font-weight: 700; color: #0369a1; margin-top: 2px; }
+          .subtitle { font-size: 11px; color: #64748b; margin-top: 6px; }
+          .title { font-size: 14px; margin: 16px 0; font-weight: 700; color: #0f172a; text-align: center; border: 1px dashed #cbd5e1; padding: 8px; border-radius: 6px; background: #f8fafc; }
+          
+          .card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #0284c7;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+          }
+          .card-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #0284c7;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 6px;
+          }
+          
+          .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+          .grid-3 { display: grid; grid-template-columns: 1.5fr 1.2fr 0.8fr; gap: 12px 24px; }
           .field { display: flex; flex-direction: column; }
-          .label { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-          .value { font-size: 15px; font-weight: 700; margin-top: 4px; }
-          .status { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: 700; text-transform: uppercase; font-size: 12px; }
+          .label { font-size: 9.5px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+          .value { font-size: 13px; font-weight: 700; margin-top: 2px; }
+          .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 700; text-transform: uppercase; font-size: 10px; width: fit-content; }
           .status.pending { background: #fef3c7; color: #b45309; }
-          .status.confirmed { background: #ccfbf1; color: #0f766e; }
+          .status.confirmed { background: #dcfce7; color: #15803d; }
           .status.completed { background: #dbeafe; color: #1d4ed8; }
           .status.cancelled { background: #fee2e2; color: #b91c1c; }
-          .footer { margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 20px; font-size: 12px; color: #64748b; text-align: center; }
-          .btn-print { display: block; width: 250px; margin: 30px auto; padding: 12px; background: #0284c7; color: white; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; text-align: center; text-decoration: none; font-size: 14px; }
+          
+          .instructions-card {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-left: 4px solid #d97706;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+          }
+          .instructions-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #78350f;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+          }
+          .instruction-item {
+            font-size: 10.5px;
+            color: #92400e;
+            margin-bottom: 6px;
+          }
+          .instruction-item:last-child { margin-bottom: 0; }
+          .gen-time {
+            font-size: 9px;
+            color: #b45309;
+            margin-top: 8px;
+            font-style: italic;
+          }
+          
+          .footer { margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 16px; font-size: 11px; font-weight: 600; color: #0284c7; text-align: center; }
+          .btn-print { display: block; width: 250px; margin: 20px auto 0 auto; padding: 12px; background: #0284c7; color: white; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; text-align: center; font-size: 13.5px; font-family: 'Outfit', sans-serif; transition: background 0.2s; }
+          .btn-print:hover { background: #0369a1; }
+          
           @media print {
+            body { background: white; padding: 0; }
+            .voucher-container { border: none; box-shadow: none; padding: 0; max-width: 100%; }
             .btn-print { display: none; }
           }
         </style>
       </head>
       <body>
-        <div class="header">
-          <div class="logo">SVKM'S TMPM HOSPITAL</div>
-          <div class="subtitle">Kharde BK, Shirpur, Dhule, Maharashtra - 425405</div>
-          <div class="title">${titleText}</div>
-        </div>
-        <div class="grid">
-          <div class="field">
-            <div class="label">${appNoLabel}</div>
-            <div class="value" style="color: #0284c7;">${app.appointmentId}</div>
+        <div class="voucher-container">
+          <div class="header">
+            <div class="logo">SVKM'S TMPM HOSPITAL</div>
+            <div class="logo-mr">एस. व्ही. के. एम. चे टी. एम. पी. एम. रुग्णालय</div>
+            <div class="subtitle">Kharde BK, Shirpur, District Dhule, Maharashtra - 425405<br>Phone: +91 99693 79023 / +91 2563 295550  |  Email: info.tmpmhospital@svkm.ac.in</div>
           </div>
-          <div class="field">
-            <div class="label">${statusLabel}</div>
-            <div class="value">
-              <span class="status ${app.status.toLowerCase()}">${app.status}</span>
+          
+          <div class="title">${titleText.toUpperCase()}</div>
+          
+          <!-- Row 1: Side-by-Side Reference & QR Code -->
+          <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <!-- Appointment Reference Card -->
+            <div class="card" style="margin-bottom: 0;">
+              <div class="card-title">${language === 'mr' ? 'अपॉइंटमेंट संदर्भ / Reference' : 'Appointment Reference'}</div>
+              <div class="grid-2" style="grid-template-columns: 1fr; gap: 8px;">
+                <div class="field">
+                  <span class="label">${language === 'mr' ? 'संदर्भ आयडी / Appointment ID' : 'Appointment ID'}</span>
+                  <span class="value" style="color: #0284c7;">${app.appointmentId}</span>
+                </div>
+                <div class="field">
+                  <span class="label">${statusLabel}</span>
+                  <span class="value">
+                    <span class="status ${app.status.toLowerCase()}">${language === 'mr' ? (app.status === 'Confirmed' ? 'निश्चित' : app.status === 'Cancelled' ? 'रद्द' : 'प्रलंबित') : app.status}</span>
+                  </span>
+                </div>
+                <div class="field">
+                  <span class="label">${language === 'mr' ? 'बुकिंग वेळ / Booking Time' : 'Booking Time'}</span>
+                  <span class="value" style="font-size: 11px;">${new Date(app.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- QR Code Card -->
+            <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px;">
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=85x85&data=${encodeURIComponent(window.location.origin + '/?statusId=' + app.appointmentId)}" width="85" height="85" style="border: 1px solid #cbd5e1; padding: 4px; border-radius: 4px; background: white;" />
+              <span class="label" style="margin-top: 8px; font-size: 8.5px; text-align: center;">${language === 'mr' ? 'पडताळणी करा / Scan to verify' : 'Scan to verify booking'}</span>
             </div>
           </div>
-          <div class="field">
-            <div class="label">${patientLabel}</div>
-            <div class="value">${app.patientName}</div>
+          
+          <!-- Patient Details Card -->
+          <div class="card">
+            <div class="card-title">${language === 'mr' ? 'रुग्णाची माहिती / Patient Information' : 'Patient Information'}</div>
+            <div class="grid-3">
+              <div class="field">
+                <span class="label">${patientLabel}</span>
+                <span class="value">${app.fullName || `${app.title} ${app.firstName} ${app.lastName}`}</span>
+              </div>
+              <div class="field">
+                <span class="label">${language === 'mr' ? 'जन्म तारीख / Date of Birth' : 'Date of Birth'}</span>
+                <span class="value">${new Date(app.dateOfBirth).toLocaleDateString('en-IN')}</span>
+              </div>
+              <div class="field">
+                <span class="label">${language === 'mr' ? 'वय / Age' : 'Age'}</span>
+                <span class="value">${app.age} ${language === 'mr' ? 'वर्षे' : 'Years'}</span>
+              </div>
+            </div>
+            <div class="grid-2" style="margin-top: 12px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+              <div class="field">
+                <span class="label">${phoneLabel}</span>
+                <span class="value">${app.mobile}</span>
+              </div>
+              <div class="field">
+                <span class="label">Email</span>
+                <span class="value">${app.email || '-'}</span>
+              </div>
+            </div>
           </div>
-          <div class="field">
-            <div class="label">${phoneLabel}</div>
-            <div class="value">${app.mobile}</div>
+          
+          <!-- Appointment Schedule Details -->
+          <div class="card">
+            <div class="card-title">${language === 'mr' ? 'अपॉइंटमेंट तपशील / Details' : 'Appointment Details'}</div>
+            <div class="grid-2">
+              <div class="field">
+                <span class="label">${deptLabel}</span>
+                <span class="value">${deptVal}</span>
+              </div>
+              <div class="field">
+                <span class="label">${docLabel}</span>
+                <span class="value">${docVal}</span>
+              </div>
+              <div class="field">
+                <span class="label">${dateLabel}</span>
+                <span class="value">${formatISTDate(app.appointmentDate)}</span>
+              </div>
+              <div class="field">
+                <span class="label">${language === 'mr' ? 'वेळ / Time Slot' : 'Time Slot'}</span>
+                <span class="value">${app.appointmentSlot}</span>
+              </div>
+            </div>
           </div>
-          <div class="field">
-            <div class="label">${deptLabel}</div>
-            <div class="value">${deptVal}</div>
-          </div>
-          <div class="field">
-            <div class="label">${docLabel}</div>
-            <div class="value">${docVal}</div>
-          </div>
-          <div class="field" style="grid-column: span 2;">
-            <div class="label">${dateLabel}</div>
-            <div class="value">${new Date(app.appointmentDate).toLocaleDateString()}</div>
-          </div>
+          
+          <!-- Symptoms / Notes -->
           ${app.message ? `
-          <div class="field" style="grid-column: span 2;">
-            <div class="label">${notesLabel}</div>
-            <div class="value" style="font-weight: normal; font-style: italic;">"${app.message}"</div>
+          <div class="card">
+            <div class="card-title">${language === 'mr' ? 'लक्षणे / सूचना (Symptoms / Notes)' : 'Symptoms / Notes'}</div>
+            <div class="value" style="font-weight: normal; font-style: italic; font-size: 12.5px;">"${app.message}"</div>
           </div>` : ''}
-        </div>
-        <div class="footer">
-          ${footerText}
+          
+          <!-- Instructions -->
+          <div class="instructions-card">
+            <div class="instructions-title">${language === 'mr' ? 'भेट देण्याबाबत मार्गदर्शक सूचना / Visitation Instructions' : 'Visitation Instructions'}</div>
+            <div class="instruction-item">1. ${language === 'mr' ? 'कृपया टोकन मिळवण्यासाठी हे कागदपत्र काउंटरवर दाखवा.' : 'Please present this document at the reception desk to obtain your patient entry token.'}</div>
+            <div class="instruction-item">2. ${language === 'mr' ? 'कृपया ओळख पडताळणीसाठी शासकीय ओळखपत्र सोबत ठेवा.' : 'Please carry valid government identification matching the name on this voucher.'}</div>
+            <div class="instruction-item">3. ${language === 'mr' ? 'कृपया निवडलेल्या वेळेच्या १५ मिनिटे आधी रुग्णालयात उपस्थित रहा.' : 'Please arrive 15 minutes before your scheduled slot.'}</div>
+            <div class="gen-time">${language === 'mr' ? 'जनरेट वेळ' : 'Generated at'}: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</div>
+          </div>
+          
+          <div class="footer">
+            SVKM'S TMPM HOSPITAL - Caring for Your Health, Always! / आपल्या आरोग्याची काळजी, सदैव!
+          </div>
         </div>
         <button class="btn-print" onclick="window.print()">${printBtnText}</button>
       </body>
@@ -1197,11 +1696,46 @@ export const printVoucher = (app: any, language: Language = 'en') => {
 };
 
 export const AppointmentStatusModal: React.FC<ModalProps> = ({ isOpen, onClose, language }) => {
+  const location = useLocation();
 
   const [appointmentNo, setAppointmentNo] = useState('');
   const [searchStatus, setSearchStatus] = useState<'idle' | 'searching' | 'success' | 'failed'>('idle');
   const [retrievedAppointment, setRetrievedAppointment] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [hasAutoRun, setHasAutoRun] = useState(false);
+
+  // Handle automatic status lookup if query parameter statusId is in URL
+  useEffect(() => {
+    if (isOpen) {
+      if (!hasAutoRun) {
+        const params = new URLSearchParams(location.search);
+        const statusId = params.get('statusId');
+        if (statusId) {
+          setHasAutoRun(true);
+          setAppointmentNo(statusId);
+          
+          const autoSearch = async () => {
+            setSearchStatus('searching');
+            setErrorMsg('');
+            try {
+              const res = await appointmentsApi.getStatus(statusId.trim());
+              if (res.success) {
+                setRetrievedAppointment(res.appointment);
+                setSearchStatus('success');
+              }
+            } catch (err: any) {
+              console.error('Auto status search error:', err);
+              setErrorMsg(err.response?.data?.message || 'Failed to find appointment.');
+              setSearchStatus('failed');
+            }
+          };
+          autoSearch();
+        }
+      }
+    } else {
+      setHasAutoRun(false); // Reset when modal is closed
+    }
+  }, [isOpen, location, hasAutoRun]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1233,12 +1767,12 @@ export const AppointmentStatusModal: React.FC<ModalProps> = ({ isOpen, onClose, 
     <AnimatePresence>
       {isOpen && (
         <div className="modal-overlay">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className="modal-content glass-panel-blue"
-            style={{ 
+            style={{
               maxWidth: searchStatus === 'success' ? '540px' : '440px',
               padding: 0,
               maxHeight: '92vh'
@@ -1260,7 +1794,7 @@ export const AppointmentStatusModal: React.FC<ModalProps> = ({ isOpen, onClose, 
                   {language === 'en' ? 'Check Appointment Status' : 'अपॉइंटमेंट स्थिती तपासा'}
                 </h3>
               </div>
-              <button 
+              <button
                 onClick={onClose}
                 style={{
                   background: 'rgba(255,255,255,0.1)',
@@ -1289,8 +1823,8 @@ export const AppointmentStatusModal: React.FC<ModalProps> = ({ isOpen, onClose, 
                       {language === 'en' ? 'Track Your Appointment' : 'तुमची अपॉइंटमेंट ट्रॅक करा'}
                     </h4>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
-                      {language === 'en' 
-                        ? 'Enter the appointment reference number (e.g. AP2606070001) to verify your schedule status.' 
+                      {language === 'en'
+                        ? 'Enter the appointment reference number (e.g. AP2606070001) to verify your schedule status.'
                         : 'तुमच्या अपॉइंटमेंटचे वेळापत्रक तपासण्यासाठी अपॉइंटमेंट संदर्भ क्रमांक प्रविष्ट करा (उदा. AP2606070001).'}
                     </p>
                   </div>
@@ -1300,8 +1834,8 @@ export const AppointmentStatusModal: React.FC<ModalProps> = ({ isOpen, onClose, 
                       <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
                         {language === 'en' ? 'Appointment ID' : 'अपॉइंटमेंट संदर्भ क्रमांक'}
                       </label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         required
                         placeholder="e.g. AP2606070001"
                         value={appointmentNo}
@@ -1317,9 +1851,9 @@ export const AppointmentStatusModal: React.FC<ModalProps> = ({ isOpen, onClose, 
                         }}
                       />
                     </div>
-                    
-                    <button 
-                      type="submit" 
+
+                    <button
+                      type="submit"
                       className="btn btn-primary"
                       style={{ height: '46px' }}
                     >
@@ -1357,7 +1891,7 @@ export const AppointmentStatusModal: React.FC<ModalProps> = ({ isOpen, onClose, 
 
               {searchStatus === 'success' && retrievedAppointment && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  
+
                   {/* Voucher Preview */}
                   <div className="glass-panel" style={{
                     padding: '20px',
@@ -1408,11 +1942,21 @@ export const AppointmentStatusModal: React.FC<ModalProps> = ({ isOpen, onClose, 
                           {language === 'mr' ? (retrievedAppointment.doctorMr || retrievedAppointment.doctor) : retrievedAppointment.doctor}
                         </div>
                       </div>
-                      <div style={{ gridColumn: 'span 2' }}>
+                      <div>
                         <span style={{ color: 'var(--text-muted)' }}>
-                          {language === 'en' ? 'Appointment Date' : 'अपॉइंटमेंट तारीख'}
+                          {language === 'en' ? 'Appointment Date & Slot' : 'अपॉइंटमेंट तारीख आणि वेळ'}
                         </span>
-                        <div style={{ fontWeight: 700, color: 'var(--primary)', marginTop: '2px' }}>{new Date(retrievedAppointment.appointmentDate).toLocaleDateString()}</div>
+                        <div style={{ fontWeight: 700, color: 'var(--primary)', marginTop: '2px' }}>
+                          {formatISTDate(retrievedAppointment.appointmentDate)} - {retrievedAppointment.appointmentSlot}
+                        </div>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          {language === 'en' ? 'Booked On' : 'बुकिंग तारीख आणि वेळ'}
+                        </span>
+                        <div style={{ fontWeight: 600, marginTop: '2px' }}>
+                          {new Date(retrievedAppointment.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1422,8 +1966,16 @@ export const AppointmentStatusModal: React.FC<ModalProps> = ({ isOpen, onClose, 
                     <button onClick={handleReset} className="btn btn-secondary">
                       {language === 'en' ? 'Back' : 'मागे'}
                     </button>
-                    <button 
+                    <button
                       onClick={() => printVoucher(retrievedAppointment, language)}
+                      className="btn btn-secondary"
+                      style={{ display: 'flex', gap: '8px', alignItems: 'center' }}
+                    >
+                      <Printer size={16} />
+                      {language === 'en' ? 'Print Receipt' : 'पावती प्रिंट करा'}
+                    </button>
+                    <button
+                      onClick={() => appointmentsApi.downloadPdf(retrievedAppointment._id, retrievedAppointment.appointmentId)}
                       className="btn btn-primary"
                       style={{ display: 'flex', gap: '8px', alignItems: 'center' }}
                     >

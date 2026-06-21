@@ -31,9 +31,12 @@ export const News: React.FC<NewsProps> = ({ language }) => {
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     if (language === 'mr') {
-      return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+      const day = d.toLocaleDateString('en-IN', { day: '2-digit', timeZone: 'Asia/Kolkata' });
+      const month = d.toLocaleDateString('en-IN', { month: '2-digit', timeZone: 'Asia/Kolkata' });
+      const year = d.toLocaleDateString('en-IN', { year: 'numeric', timeZone: 'Asia/Kolkata' });
+      return `${day}/${month}/${year}`;
     }
-    return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
   };
 
   return (

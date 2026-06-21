@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Navbar } from '../components/Navbar';
 import { Hero } from '../components/Hero';
 import { Stats } from '../components/Stats';
@@ -19,6 +20,14 @@ const Home: React.FC = () => {
   const [language, setLanguage] = useState<Language>('en');
   const [isAppointmentOpen, setIsAppointmentOpen] = useState(false);
   const [isStatusOpen, setIsStatusOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('statusId')) {
+      setIsStatusOpen(true);
+    }
+  }, [location]);
 
   const handleOpenAppointment = () => setIsAppointmentOpen(true);
   const handleCloseAppointment = () => setIsAppointmentOpen(false);

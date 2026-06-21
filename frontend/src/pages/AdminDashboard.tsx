@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   doctorsApi, 
@@ -35,12 +35,14 @@ import {
   Newspaper,
   Star,
   MessageSquare,
-  BarChart3
+  BarChart3,
+  Eye,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { printVoucher } from '../components/Modals';
+import { getISTDateString, formatISTDate } from '../utils/dateUtils';
 
-type Tab = 'overview' | 'appointments' | 'doctors' | 'departments' | 'news' | 'gallery' | 'testimonials' | 'enquiries' | 'stats';
+type Tab = 'overview' | 'appointments' | 'schedule' | 'doctors' | 'departments' | 'news' | 'gallery' | 'testimonials' | 'enquiries' | 'stats';
 
 interface DoctorType {
   _id: string;
@@ -81,9 +83,16 @@ interface AppointmentType {
 const AdminDashboard: React.FC = () => {
   const { logout, adminUser, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Navigation & UI States
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+
+  useEffect(() => {
+    if (location.state && (location.state as any).activeTab) {
+      setActiveTab((location.state as any).activeTab);
+    }
+  }, [location.state]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -107,6 +116,15 @@ const AdminDashboard: React.FC = () => {
   const [appSearch, setAppSearch] = useState('');
   const [appStatusFilter, setAppStatusFilter] = useState('All');
   const [appDeptFilter, setAppDeptFilter] = useState('All');
+  const [appDoctorFilter, setAppDoctorFilter] = useState('All');
+  const [appDateFilter, setAppDateFilter] = useState('');
+
+  // Daily Slots Schedule monitor states
+  const [scheduleDept, setScheduleDept] = useState('All');
+  const [scheduleDoctor, setScheduleDoctor] = useState('');
+  const [scheduleDate, setScheduleDate] = useState(getISTDateString());
+  const [scheduleSlotsList, setScheduleSlotsList] = useState<any[]>([]);
+  const [scheduleSlotsLoading, setScheduleSlotsLoading] = useState(false);
 
   // Modal / Form States
   const [isDoctorModalOpen, setIsDoctorModalOpen] = useState(false);
@@ -151,7 +169,7 @@ const AdminDashboard: React.FC = () => {
     titleMr: '',
     descriptionEn: '',
     descriptionMr: '',
-    date: new Date().toISOString().split('T')[0]
+    date: getISTDateString()
   });
   const [newsImageFile, setNewsImageFile] = useState<File | null>(null);
   const [newsImagePreview, setNewsImagePreview] = useState<string>('');
@@ -203,7 +221,12 @@ const AdminDashboard: React.FC = () => {
         contactsApi.getAll(),
         statsApi.get()
       ]);
-      if (docsRes.success) setDoctors(docsRes.doctors);
+      if (docsRes.success) {
+        setDoctors(docsRes.doctors);
+        if (docsRes.doctors.length > 0) {
+          setScheduleDoctor(docsRes.doctors[0].doctorName.en);
+        }
+      }
       if (deptsRes.success) setDepartments(deptsRes.departments);
       if (appsRes.success) setAppointments(appsRes.appointments);
       if (newsRes.success) setNews(newsRes.news);
@@ -239,7 +262,9 @@ const AdminDashboard: React.FC = () => {
       const res = await appointmentsApi.getAll({
         search: appSearch,
         status: appStatusFilter,
-        department: appDeptFilter
+        department: appDeptFilter,
+        doctor: appDoctorFilter,
+        date: appDateFilter
       });
       if (res.success) {
         setAppointments(res.appointments);
@@ -256,7 +281,49 @@ const AdminDashboard: React.FC = () => {
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [appSearch, appStatusFilter, appDeptFilter]);
+  }, [appSearch, appStatusFilter, appDeptFilter, appDoctorFilter, appDateFilter]);
+
+  // Monitor Schedule Slots loading
+  useEffect(() => {
+    const loadScheduleSlots = async () => {
+      if (!scheduleDate || !scheduleDoctor || doctors.length === 0) {
+        setScheduleSlotsList([]);
+        return;
+      }
+      setScheduleSlotsLoading(true);
+      try {
+        const doc = doctors.find(d => d.doctorName.en === scheduleDoctor);
+        if (doc) {
+          const res = await appointmentsApi.getAvailableSlots(doc._id, scheduleDate);
+          if (res.success && res.slotsData) {
+            setScheduleSlotsList(res.slotsData);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading schedule slots:', err);
+      } finally {
+        setScheduleSlotsLoading(false);
+      }
+    };
+    loadScheduleSlots();
+  }, [scheduleDoctor, scheduleDate, doctors]);
+
+  // Filtered doctors list for the schedule monitor
+  const filteredScheduleDoctors = doctors.filter(d => 
+    scheduleDept === 'All' || d.department.toLowerCase() === scheduleDept.toLowerCase()
+  );
+
+  // Sync selected schedule doctor when filtered list changes or initial load
+  useEffect(() => {
+    if (filteredScheduleDoctors.length > 0) {
+      const isStillAvailable = filteredScheduleDoctors.some(d => d.doctorName.en === scheduleDoctor);
+      if (!isStillAvailable) {
+        setScheduleDoctor(filteredScheduleDoctors[0].doctorName.en);
+      }
+    } else {
+      setScheduleDoctor('');
+    }
+  }, [scheduleDept, doctors]);
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -276,10 +343,10 @@ const AdminDashboard: React.FC = () => {
   // Appointment Actions
   const handleUpdateAppStatus = async (id: string, status: 'Confirmed' | 'Completed' | 'Cancelled') => {
     try {
-      const res = await appointmentsApi.update(id, { status });
+      const res = await appointmentsApi.updateStatus(id, status);
       if (res.success) {
-        setAppointments(prev => prev.map(app => app._id === id ? { ...app, status } : app));
-        showNotification('success', `Appointment marked as ${status}`);
+        setAppointments(prev => prev.map(a => a._id === id ? { ...a, status: res.appointment.status } : a));
+        showNotification('success', `Appointment status updated to ${status}`);
       }
     } catch (err: any) {
       showNotification('error', err.response?.data?.message || 'Failed to update status');
@@ -534,7 +601,7 @@ const AdminDashboard: React.FC = () => {
       titleMr: '',
       descriptionEn: '',
       descriptionMr: '',
-      date: new Date().toISOString().split('T')[0]
+      date: getISTDateString()
     });
     setNewsImageFile(null);
     setNewsImagePreview('');
@@ -548,7 +615,7 @@ const AdminDashboard: React.FC = () => {
       titleMr: post.title.mr,
       descriptionEn: post.description.en,
       descriptionMr: post.description.mr,
-      date: post.date ? new Date(post.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+      date: post.date ? getISTDateString(new Date(post.date)) : getISTDateString()
     });
     setNewsImageFile(null);
     setNewsImagePreview(post.image || '');
@@ -873,6 +940,11 @@ const AdminDashboard: React.FC = () => {
             <span>Appointments</span>
           </button>
 
+          <button onClick={() => setActiveTab('schedule')} className={`sidebar-nav-btn ${activeTab === 'schedule' ? 'active' : ''}`}>
+            <Clock size={16} />
+            <span>Daily Schedule</span>
+          </button>
+
           <button onClick={() => setActiveTab('doctors')} className={`sidebar-nav-btn ${activeTab === 'doctors' ? 'active' : ''}`}>
             <Users size={16} />
             <span>Doctors</span>
@@ -963,7 +1035,11 @@ const AdminDashboard: React.FC = () => {
               <Menu size={22} />
             </button>
             <h1 style={{ fontSize: '1.25rem', color: 'var(--primary)', textTransform: 'capitalize' }}>
-              {activeTab === 'overview' ? 'Dashboard Summary' : `${activeTab} management`}
+              {activeTab === 'overview' 
+                ? 'Dashboard Summary' 
+                : activeTab === 'schedule' 
+                  ? 'Daily Slot Schedule Monitor' 
+                  : `${activeTab} management`}
             </h1>
           </div>
 
@@ -1102,7 +1178,7 @@ const AdminDashboard: React.FC = () => {
                           <strong>Doctor:</strong> {app.doctor}
                         </div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          <strong>Date:</strong> {new Date(app.appointmentDate).toLocaleDateString()}
+                          <strong>Date:</strong> {formatISTDate(app.appointmentDate)}
                         </div>
                       </div>
                     ))}
@@ -1147,7 +1223,7 @@ const AdminDashboard: React.FC = () => {
                             <td style={{ padding: '12px' }}>{app.department}</td>
                             <td style={{ padding: '12px' }}>{app.doctor}</td>
                             <td style={{ padding: '12px' }}>
-                              <div>{new Date(app.appointmentDate).toLocaleDateString()}</div>
+                              <div>{formatISTDate(app.appointmentDate)}</div>
                               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{app.appointmentSlot}</div>
                             </td>
                             <td style={{ padding: '12px' }}>
@@ -1169,7 +1245,7 @@ const AdminDashboard: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               
               {/* Search & Filters */}
-              <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', borderRadius: '12px' }}>
                 <div style={{ position: 'relative', flexGrow: 1, minWidth: '220px' }}>
                   <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                   <input 
@@ -1219,10 +1295,46 @@ const AdminDashboard: React.FC = () => {
                     ))}
                   </select>
                 </div>
+
+                {/* Doctor Filter */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Filter size={14} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Doctor:</span>
+                  <select 
+                    value={appDoctorFilter} 
+                    onChange={(e) => setAppDoctorFilter(e.target.value)}
+                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', backgroundColor: 'white' }}
+                  >
+                    <option value="All">All Doctors</option>
+                    {doctors.map(d => (
+                      <option key={d._id} value={d.doctorName.en}>{d.doctorName.en}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Date Filter */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Filter size={14} style={{ color: 'var(--text-muted)' }} />
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Date:</span>
+                  <input 
+                    type="date" 
+                    value={appDateFilter} 
+                    onChange={(e) => setAppDateFilter(e.target.value)}
+                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem' }}
+                  />
+                  {appDateFilter && (
+                    <button 
+                      onClick={() => setAppDateFilter('')} 
+                      style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.8rem', cursor: 'pointer', padding: '4px' }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Table */}
-              <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)' }}>
+              <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)', borderRadius: '12px' }}>
                 <div style={{ overflowX: 'auto' }}>
                   {appointments.length === 0 ? (
                     <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -1252,7 +1364,7 @@ const AdminDashboard: React.FC = () => {
                               {app.email && <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{app.email}</div>}
                             </td>
                             <td style={{ padding: '12px' }}>
-                              <div style={{ fontWeight: 500 }}>{new Date(app.appointmentDate).toLocaleDateString()}</div>
+                              <div style={{ fontWeight: 500 }}>{formatISTDate(app.appointmentDate)}</div>
                               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 700 }}>{app.appointmentSlot}</div>
                             </td>
                             <td style={{ padding: '12px' }}>{app.department}</td>
@@ -1268,8 +1380,16 @@ const AdminDashboard: React.FC = () => {
                             <td style={{ padding: '12px', textAlign: 'right' }}>
                               <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                                 <button 
-                                  onClick={() => printVoucher(app)}
-                                  title="Print Voucher / PDF"
+                                  onClick={() => navigate(`/admin/appointments/${app._id}`)}
+                                  title="View Details"
+                                  className="action-icon-btn view"
+                                  style={{ color: 'var(--med-blue)', background: 'rgba(2,132,199,0.05)', border: '1px solid rgba(2,132,199,0.15)', borderRadius: '4px', padding: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                >
+                                  <Eye size={14} />
+                                </button>
+                                <button 
+                                  onClick={() => appointmentsApi.downloadPdf(app._id, app.appointmentId || '')}
+                                  title="Download Confirmation PDF"
                                   className="action-icon-btn print"
                                 >
                                   <Download size={14} />
@@ -1316,6 +1436,123 @@ const AdminDashboard: React.FC = () => {
                     </table>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'schedule' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary)', margin: 0 }}>Daily Slot Schedule Monitor</h3>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Identify booked (Red) and available (Green) time slots for each specialist doctor</p>
+                  </div>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px' }}>
+                  
+                  {/* Department Filter */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Department</span>
+                    <select 
+                      value={scheduleDept} 
+                      onChange={(e) => setScheduleDept(e.target.value)}
+                      style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', backgroundColor: 'white', minWidth: '220px' }}
+                    >
+                      <option value="All">All Departments</option>
+                      {departments.map(d => (
+                        <option key={d._id} value={d.departmentName.en}>{d.departmentName.en}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Specialist Doctor Filter */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Specialist Doctor</span>
+                    <select 
+                      value={scheduleDoctor} 
+                      onChange={(e) => setScheduleDoctor(e.target.value)}
+                      style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', backgroundColor: 'white', minWidth: '220px' }}
+                      disabled={filteredScheduleDoctors.length === 0}
+                    >
+                      {filteredScheduleDoctors.length === 0 ? (
+                        <option value="">No doctors available</option>
+                      ) : (
+                        filteredScheduleDoctors.map(d => (
+                          <option key={d._id} value={d.doctorName.en}>{d.doctorName.en}</option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+
+                  {/* Schedule Date Filter */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Schedule Date</span>
+                    <input 
+                      type="date" 
+                      value={scheduleDate} 
+                      onChange={(e) => setScheduleDate(e.target.value)}
+                      style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', minHeight: '36px' }}
+                    />
+                  </div>
+                </div>
+
+                {scheduleSlotsLoading ? (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px 0' }}>
+                    <Loader2 size={24} className="spin-animation" style={{ color: 'var(--med-blue)', marginRight: '8px' }} />
+                    <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>Loading schedule...</span>
+                  </div>
+                ) : !scheduleDoctor ? (
+                  <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-muted)', borderRadius: '8px', fontSize: '0.88rem' }}>
+                    No specialist doctor selected or available in this department.
+                  </div>
+                ) : scheduleSlotsList.length === 0 ? (
+                  <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-muted)', borderRadius: '8px', fontSize: '0.88rem' }}>
+                    Select a specialist doctor and booking date to visualize slot occupancy.
+                  </div>
+                ) : (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+                    gap: '10px'
+                  }}>
+                    {scheduleSlotsList.map(item => {
+                      let statusColor = '#166534';
+                      let statusBg = '#f0fdf4';
+                      let statusBorder = '1px solid #bbf7d0';
+                      let statusLabel = 'Available';
+
+                      if (item.status === 'Booked') {
+                        statusColor = '#991b1b';
+                        statusBg = '#fef2f2';
+                        statusBorder = '1px solid #fca5a5';
+                        statusLabel = 'Booked';
+                      } else if (item.status === 'Past') {
+                        statusColor = '#475569';
+                        statusBg = '#f1f5f9';
+                        statusBorder = '1px solid #cbd5e1';
+                        statusLabel = 'Unavailable';
+                      }
+
+                      return (
+                        <div key={item.slot} style={{
+                          padding: '10px 8px',
+                          borderRadius: '8px',
+                          background: statusBg,
+                          border: statusBorder,
+                          textAlign: 'center',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px'
+                        }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>{item.slot}</div>
+                          <div style={{ fontSize: '0.72rem', fontWeight: 800, color: statusColor, textTransform: 'uppercase' }}>{statusLabel}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1487,7 +1724,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
 
                     <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--med-blue)', marginBottom: '6px', display: 'block' }}>
-                      {new Date(post.date).toLocaleDateString()}
+                      {formatISTDate(post.date)}
                     </span>
                     <h4 style={{ fontSize: '1.1rem', color: 'var(--primary)', marginBottom: '8px', fontWeight: 700 }}>{post.title.en}</h4>
                     <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -1628,7 +1865,7 @@ const AdminDashboard: React.FC = () => {
                             <td style={{ padding: '12px', fontWeight: 600 }}>{c.mobile}</td>
                             <td style={{ padding: '12px' }}>{c.email || '-'}</td>
                             <td style={{ padding: '12px', maxWidth: '300px', wordBreak: 'break-word' }}>{c.message}</td>
-                            <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{new Date(c.createdAt).toLocaleString()}</td>
+                            <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{formatISTDate(c.createdAt, true)}</td>
                           </tr>
                         ))}
                       </tbody>

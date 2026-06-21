@@ -38,7 +38,7 @@ const CountUp: React.FC<CounterProps> = ({ target, duration = 2000, suffix = '' 
   }, [isInView, target, duration]);
 
   const formatNumber = (num: number) => {
-    return num.toLocaleString();
+    return num.toLocaleString('en-IN');
   };
 
   return <span ref={ref}>{formatNumber(count)}{suffix}</span>;

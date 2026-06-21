@@ -97,6 +97,10 @@ export const appointmentsApi = {
     const response = await api.post('/api/appointments', data);
     return response.data;
   },
+  getById: async (id: string) => {
+    const response = await api.get(`/api/appointments/${id}`);
+    return response.data;
+  },
   getAll: async (params?: { search?: string; status?: string; department?: string; doctor?: string; date?: string }) => {
     const response = await api.get('/api/appointments', { params });
     return response.data;
@@ -118,6 +122,29 @@ export const appointmentsApi = {
       params: { doctorId, date }
     });
     return response.data;
+  },
+  updateStatus: async (id: string, status: string) => {
+    const response = await api.patch(`/api/appointments/${id}/status`, { status });
+    return response.data;
+  },
+  search: async (appointmentId: string) => {
+    const response = await api.get(`/api/appointments/search`, {
+      params: { appointmentId }
+    });
+    return response.data;
+  },
+  downloadPdf: async (id: string, appointmentId: string) => {
+    const response = await api.get(`/api/appointments/${id}/pdf`, {
+      responseType: 'blob'
+    });
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `appointment_${appointmentId}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode?.removeChild(link);
   }
 };
 
