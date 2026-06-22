@@ -139,7 +139,7 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
                 position: 'relative'
               }}>
                 <img
-                  src="https://res.cloudinary.com/dqhvevsha/image/upload/v1781928905/hospital-doctors/nmrdydhy4hxu9whyqkhi.jpg"
+                  src="https://res.cloudinary.com/dqhvevsha/image/upload/v1782154893/hospital-doctors/oifzozs7tt7klolfopk6.jpg"
                   alt="Specialist Doctor Consulting"
                   style={{
                     width: '100%',
