@@ -39,8 +39,47 @@ import {
   Eye,
   Loader2
 } from 'lucide-react';
+import { 
+  Heart, 
+  Camera, 
+  FlaskConical, 
+  Baby, 
+  Bone, 
+  Activity, 
+  Stethoscope, 
+  Brain, 
+  Shield, 
+  Droplet, 
+  Ear, 
+  Scissors, 
+  Syringe, 
+  Sparkles, 
+  HeartPulse 
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getISTDateString, formatISTDate } from '../utils/dateUtils';
+
+const iconMap: Record<string, React.ComponentType<any>> = {
+  Heart,
+  Camera,
+  FlaskConical,
+  Baby,
+  Bone,
+  Activity,
+  Stethoscope,
+  Brain,
+  Shield,
+  Droplet,
+  Ear,
+  Scissors,
+  Syringe,
+  Sparkles,
+  HeartPulse
+};
+
+const getDeptIcon = (iconName: string) => {
+  return iconMap[iconName] || Stethoscope;
+};
 
 type Tab = 'overview' | 'appointments' | 'schedule' | 'doctors' | 'departments' | 'news' | 'gallery' | 'testimonials' | 'enquiries' | 'stats';
 
@@ -86,16 +125,44 @@ const AdminDashboard: React.FC = () => {
   const location = useLocation();
 
   // Navigation & UI States
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const saved = localStorage.getItem('adminActiveTab') as Tab;
+    const validTabs: Tab[] = ['overview', 'appointments', 'schedule', 'doctors', 'departments', 'news', 'gallery', 'testimonials', 'enquiries', 'stats'];
+    if (saved && validTabs.includes(saved)) {
+      return saved;
+    }
+    return 'overview';
+  });
 
   useEffect(() => {
     if (location.state && (location.state as any).activeTab) {
-      setActiveTab((location.state as any).activeTab);
+      const tab = (location.state as any).activeTab;
+      setActiveTab(tab);
+      localStorage.setItem('adminActiveTab', tab);
+      navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state]);
+  }, [location.state, location.pathname, navigate]);
+
+  useEffect(() => {
+    localStorage.setItem('adminActiveTab', activeTab);
+  }, [activeTab]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [fetchingData, setFetchingData] = useState(true);
+  const [updatingAppId, setUpdatingAppId] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Data States
   const [doctors, setDoctors] = useState<DoctorType[]>([]);
@@ -209,7 +276,7 @@ const AdminDashboard: React.FC = () => {
 
   // Load Data
   const loadDashboardData = async () => {
-    setLoading(true);
+    setFetchingData(true);
     try {
       const [docsRes, deptsRes, appsRes, newsRes, testimonialsRes, galleryRes, contactsRes, statsRes] = await Promise.all([
         doctorsApi.getAll(false),
@@ -246,7 +313,7 @@ const AdminDashboard: React.FC = () => {
       console.error('Error loading admin dashboard data:', err);
       showNotification('error', 'Failed to fetch latest records.');
     } finally {
-      setLoading(false);
+      setFetchingData(false);
     }
   };
 
@@ -342,6 +409,7 @@ const AdminDashboard: React.FC = () => {
 
   // Appointment Actions
   const handleUpdateAppStatus = async (id: string, status: 'Confirmed' | 'Completed' | 'Cancelled') => {
+    setUpdatingAppId(id);
     try {
       const res = await appointmentsApi.updateStatus(id, status);
       if (res.success) {
@@ -350,20 +418,34 @@ const AdminDashboard: React.FC = () => {
       }
     } catch (err: any) {
       showNotification('error', err.response?.data?.message || 'Failed to update status');
+    } finally {
+      setUpdatingAppId(null);
     }
   };
 
-  const handleDeleteAppointment = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this appointment?')) return;
-    try {
-      const res = await appointmentsApi.delete(id);
-      if (res.success) {
-        setAppointments(prev => prev.filter(app => app._id !== id));
-        showNotification('success', 'Appointment deleted successfully');
+  const handleDeleteAppointment = (id: string) => {
+    setDeleteConfirm({
+      isOpen: true,
+      title: 'Delete Appointment',
+      message: 'Are you sure you want to delete this appointment? This action cannot be undone.',
+      onConfirm: async () => {
+        setDeleteLoading(true);
+        setUpdatingAppId(id);
+        try {
+          const res = await appointmentsApi.delete(id);
+          if (res.success) {
+            setAppointments(prev => prev.filter(app => app._id !== id));
+            showNotification('success', 'Appointment deleted successfully');
+          }
+        } catch (err: any) {
+          showNotification('error', err.response?.data?.message || 'Failed to delete appointment');
+        } finally {
+          setUpdatingAppId(null);
+          setDeleteLoading(false);
+          setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+        }
       }
-    } catch (err: any) {
-      showNotification('error', err.response?.data?.message || 'Failed to delete appointment');
-    }
+    });
   };
 
   // Doctor Actions
@@ -466,17 +548,27 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleDeleteDoctor = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this doctor?')) return;
-    try {
-      const res = await doctorsApi.delete(id);
-      if (res.success) {
-        setDoctors(prev => prev.filter(d => d._id !== id));
-        showNotification('success', 'Doctor deleted successfully');
+  const handleDeleteDoctor = (id: string) => {
+    setDeleteConfirm({
+      isOpen: true,
+      title: 'Delete Doctor Record',
+      message: 'Are you sure you want to delete this doctor? This action cannot be undone and will remove all their details from the database.',
+      onConfirm: async () => {
+        setDeleteLoading(true);
+        try {
+          const res = await doctorsApi.delete(id);
+          if (res.success) {
+            setDoctors(prev => prev.filter(d => d._id !== id));
+            showNotification('success', 'Doctor deleted successfully');
+          }
+        } catch (err: any) {
+          showNotification('error', err.response?.data?.message || 'Failed to delete doctor');
+        } finally {
+          setDeleteLoading(false);
+          setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+        }
       }
-    } catch (err: any) {
-      showNotification('error', err.response?.data?.message || 'Failed to delete doctor');
-    }
+    });
   };
 
   const handleToggleDoctorAvailability = async (id: string) => {
@@ -572,17 +664,27 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleDeleteDept = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this department?')) return;
-    try {
-      const res = await departmentsApi.delete(id);
-      if (res.success) {
-        setDepartments(prev => prev.filter(d => d._id !== id));
-        showNotification('success', 'Department deleted successfully');
+  const handleDeleteDept = (id: string) => {
+    setDeleteConfirm({
+      isOpen: true,
+      title: 'Delete Department',
+      message: 'Are you sure you want to delete this department? This will also remove the department reference from associated services.',
+      onConfirm: async () => {
+        setDeleteLoading(true);
+        try {
+          const res = await departmentsApi.delete(id);
+          if (res.success) {
+            setDepartments(prev => prev.filter(d => d._id !== id));
+            showNotification('success', 'Department deleted successfully');
+          }
+        } catch (err: any) {
+          showNotification('error', err.response?.data?.message || 'Failed to delete department');
+        } finally {
+          setDeleteLoading(false);
+          setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+        }
       }
-    } catch (err: any) {
-      showNotification('error', err.response?.data?.message || 'Failed to delete department');
-    }
+    });
   };
 
   // News Actions
@@ -666,17 +768,27 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleDeleteNews = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this news post?')) return;
-    try {
-      const res = await newsApi.delete(id);
-      if (res.success) {
-        setNews(prev => prev.filter(n => n._id !== id));
-        showNotification('success', 'News post deleted successfully');
+  const handleDeleteNews = (id: string) => {
+    setDeleteConfirm({
+      isOpen: true,
+      title: 'Delete News Announcement',
+      message: 'Are you sure you want to delete this news post? It will immediately be removed from the public website.',
+      onConfirm: async () => {
+        setDeleteLoading(true);
+        try {
+          const res = await newsApi.delete(id);
+          if (res.success) {
+            setNews(prev => prev.filter(n => n._id !== id));
+            showNotification('success', 'News post deleted successfully');
+          }
+        } catch (err: any) {
+          showNotification('error', err.response?.data?.message || 'Failed to delete news post');
+        } finally {
+          setDeleteLoading(false);
+          setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+        }
       }
-    } catch (err: any) {
-      showNotification('error', err.response?.data?.message || 'Failed to delete news post');
-    }
+    });
   };
 
   // Testimonial Actions
@@ -751,17 +863,27 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleDeleteTestimonial = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this testimonial?')) return;
-    try {
-      const res = await testimonialsApi.delete(id);
-      if (res.success) {
-        setTestimonials(prev => prev.filter(t => t._id !== id));
-        showNotification('success', 'Testimonial deleted successfully');
+  const handleDeleteTestimonial = (id: string) => {
+    setDeleteConfirm({
+      isOpen: true,
+      title: 'Delete Testimonial',
+      message: 'Are you sure you want to delete this testimonial? It will no longer display in the feedback carousel.',
+      onConfirm: async () => {
+        setDeleteLoading(true);
+        try {
+          const res = await testimonialsApi.delete(id);
+          if (res.success) {
+            setTestimonials(prev => prev.filter(t => t._id !== id));
+            showNotification('success', 'Testimonial deleted successfully');
+          }
+        } catch (err: any) {
+          showNotification('error', err.response?.data?.message || 'Failed to delete testimonial');
+        } finally {
+          setDeleteLoading(false);
+          setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+        }
       }
-    } catch (err: any) {
-      showNotification('error', err.response?.data?.message || 'Failed to delete testimonial');
-    }
+    });
   };
 
   // Gallery Actions
@@ -815,17 +937,50 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleDeleteGallery = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this gallery item?')) return;
-    try {
-      const res = await galleryApi.delete(id);
-      if (res.success) {
-        setGallery(prev => prev.filter(g => g._id !== id));
-        showNotification('success', 'Gallery item deleted successfully');
+  const handleDeleteGallery = (id: string) => {
+    setDeleteConfirm({
+      isOpen: true,
+      title: 'Delete Gallery Image',
+      message: 'Are you sure you want to delete this gallery item? This action removes the image resource permanently.',
+      onConfirm: async () => {
+        setDeleteLoading(true);
+        try {
+          const res = await galleryApi.delete(id);
+          if (res.success) {
+            setGallery(prev => prev.filter(g => g._id !== id));
+            showNotification('success', 'Gallery item deleted successfully');
+          }
+        } catch (err: any) {
+          showNotification('error', err.response?.data?.message || 'Failed to delete gallery item');
+        } finally {
+          setDeleteLoading(false);
+          setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+        }
       }
-    } catch (err: any) {
-      showNotification('error', err.response?.data?.message || 'Failed to delete gallery item');
-    }
+    });
+  };
+
+  const handleDeleteEnquiry = (id: string) => {
+    setDeleteConfirm({
+      isOpen: true,
+      title: 'Delete Enquiry',
+      message: 'Are you sure you want to delete this contact enquiry? This action cannot be undone.',
+      onConfirm: async () => {
+        setDeleteLoading(true);
+        try {
+          const res = await contactsApi.delete(id);
+          if (res.success) {
+            setContacts(prev => prev.filter(c => c._id !== id));
+            showNotification('success', 'Enquiry deleted successfully');
+          }
+        } catch (err: any) {
+          showNotification('error', err.response?.data?.message || 'Failed to delete enquiry');
+        } finally {
+          setDeleteLoading(false);
+          setDeleteConfirm(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
   };
 
   // Stats Actions
@@ -1059,781 +1214,820 @@ const AdminDashboard: React.FC = () => {
 
         {/* Tab Contents */}
         <main style={{ padding: '32px 24px', flexGrow: 1, maxWidth: '1400px', width: '100%', margin: '0 auto' }}>
-          {loading && (
-            <div style={{
-              position: 'fixed',
-              top: '80px',
-              right: '24px',
-              zIndex: 999,
-              background: 'white',
-              padding: '8px 16px',
-              borderRadius: 'var(--radius-full)',
-              boxShadow: 'var(--shadow-md)',
-              border: '1px solid var(--border-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '0.85rem',
-              color: 'var(--text-muted)'
-            }}>
-              <div style={{ width: '14px', height: '14px', border: '2px solid rgba(2, 132, 199, 0.15)', borderTopColor: 'var(--med-blue)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-              <span>Updating...</span>
-            </div>
-          )}
+
 
           {activeTab === 'overview' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-              
-              {/* Stat Cards Grid */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '20px'
-              }}>
-                <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total Doctors</span>
-                    <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--primary)', fontWeight: 800 }}>{totalDocs}</h3>
-                  </div>
-                  <div style={{ background: 'var(--med-blue-light)', color: 'var(--med-blue)', padding: '10px', borderRadius: '10px' }}>
-                    <Users size={20} />
-                  </div>
+              {fetchingData ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+                  <Loader2 size={36} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
                 </div>
-
-                <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Departments</span>
-                    <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--cyan-hover)', fontWeight: 800 }}>{totalDepts}</h3>
-                  </div>
-                  <div style={{ background: 'var(--cyan-light)', color: 'var(--cyan-hover)', padding: '10px', borderRadius: '10px' }}>
-                    <Layers size={20} />
-                  </div>
-                </div>
-
-                <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total Appointments</span>
-                    <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--med-blue)', fontWeight: 800 }}>{totalApps}</h3>
-                  </div>
-                  <div style={{ background: 'var(--med-blue-light)', color: 'var(--med-blue)', padding: '10px', borderRadius: '10px' }}>
-                    <Calendar size={20} />
-                  </div>
-                </div>
-
-                <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Pending Appts</span>
-                    <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'orange', fontWeight: 800 }}>{pendingApps}</h3>
-                  </div>
-                  <div style={{ background: '#fef3c7', color: '#d97706', padding: '10px', borderRadius: '10px' }}>
-                    <Clock size={20} />
-                  </div>
-                </div>
-
-                <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total Enquiries</span>
-                    <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--med-blue)', fontWeight: 800 }}>{totalContacts}</h3>
-                  </div>
-                  <div style={{ background: 'rgba(2, 132, 199, 0.05)', color: 'var(--med-blue)', padding: '10px', borderRadius: '10px' }}>
-                    <MessageSquare size={20} />
-                  </div>
-                </div>
-
-                <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>News Announcements</span>
-                    <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--primary)', fontWeight: 800 }}>{totalNews}</h3>
-                  </div>
-                  <div style={{ background: 'rgba(2, 132, 199, 0.05)', color: 'var(--med-blue)', padding: '10px', borderRadius: '10px' }}>
-                    <Newspaper size={20} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Slot-wise Appointment View */}
-              <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)' }}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '16px', color: 'var(--primary)' }}>Slot-wise Schedule View</h3>
-                {slotwiseApps.length === 0 ? (
-                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                    No slots booked yet.
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-                    {slotwiseApps.slice(0, 8).map(app => (
-                      <div key={app._id} style={{
-                        padding: '14px',
-                        border: '1px solid var(--border-muted)',
-                        borderRadius: '8px',
-                        background: 'var(--bg-primary)'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <span style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--med-blue)' }}>{app.appointmentId}</span>
-                          <span style={{ fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px', background: 'white', fontWeight: 700, border: '1px solid var(--border-muted)' }}>
-                            {app.appointmentSlot}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '4px' }}>{app.patientName}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                          <strong>Doctor:</strong> {app.doctor}
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          <strong>Date:</strong> {formatISTDate(app.appointmentDate)}
-                        </div>
+              ) : (
+                <>
+                  {/* Stat Cards Grid */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '20px'
+                  }}>
+                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total Doctors</span>
+                        <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--primary)', fontWeight: 800 }}>{totalDocs}</h3>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Recent Appointments Preview */}
-              <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Recent Bookings</h3>
-                  <button onClick={() => setActiveTab('appointments')} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>Manage All</span>
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
-
-                <div style={{ overflowX: 'auto' }}>
-                  {appointments.length === 0 ? (
-                    <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      No appointments booked yet.
+                      <div style={{ background: 'var(--med-blue-light)', color: 'var(--med-blue)', padding: '10px', borderRadius: '10px' }}>
+                        <Users size={20} />
+                      </div>
                     </div>
-                  ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', textAlign: 'left' }}>
-                      <thead>
-                        <tr style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-muted)' }}>
-                          <th style={{ padding: '12px' }}>Appt ID</th>
-                          <th style={{ padding: '12px' }}>Patient</th>
-                          <th style={{ padding: '12px' }}>Contact</th>
-                          <th style={{ padding: '12px' }}>Department</th>
-                          <th style={{ padding: '12px' }}>Doctor</th>
-                          <th style={{ padding: '12px' }}>Date/Slot</th>
-                          <th style={{ padding: '12px' }}>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {appointments.slice(0, 5).map(app => (
-                          <tr key={app._id} style={{ borderBottom: '1px solid var(--border-muted)' }}>
-                            <td style={{ padding: '12px', fontWeight: 700, color: 'var(--med-blue)' }}>{app.appointmentId || '-'}</td>
-                            <td style={{ padding: '12px', fontWeight: 600 }}>{app.patientName}</td>
-                            <td style={{ padding: '12px' }}>{app.mobile}</td>
-                            <td style={{ padding: '12px' }}>{app.department}</td>
-                            <td style={{ padding: '12px' }}>{app.doctor}</td>
-                            <td style={{ padding: '12px' }}>
-                              <div>{formatISTDate(app.appointmentDate)}</div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{app.appointmentSlot}</div>
-                            </td>
-                            <td style={{ padding: '12px' }}>
-                              <span className={`status-pill ${app.status.toLowerCase()}`}>
-                                {app.status}
+
+                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Departments</span>
+                        <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--cyan-hover)', fontWeight: 800 }}>{totalDepts}</h3>
+                      </div>
+                      <div style={{ background: 'var(--cyan-light)', color: 'var(--cyan-hover)', padding: '10px', borderRadius: '10px' }}>
+                        <Layers size={20} />
+                      </div>
+                    </div>
+
+                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total Appointments</span>
+                        <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--med-blue)', fontWeight: 800 }}>{totalApps}</h3>
+                      </div>
+                      <div style={{ background: 'var(--med-blue-light)', color: 'var(--med-blue)', padding: '10px', borderRadius: '10px' }}>
+                        <Calendar size={20} />
+                      </div>
+                    </div>
+
+                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Pending Appts</span>
+                        <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'orange', fontWeight: 800 }}>{pendingApps}</h3>
+                      </div>
+                      <div style={{ background: '#fef3c7', color: '#d97706', padding: '10px', borderRadius: '10px' }}>
+                        <Clock size={20} />
+                      </div>
+                    </div>
+
+                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total Enquiries</span>
+                        <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--med-blue)', fontWeight: 800 }}>{totalContacts}</h3>
+                      </div>
+                      <div style={{ background: 'rgba(2, 132, 199, 0.05)', color: 'var(--med-blue)', padding: '10px', borderRadius: '10px' }}>
+                        <MessageSquare size={20} />
+                      </div>
+                    </div>
+
+                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>News Announcements</span>
+                        <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--primary)', fontWeight: 800 }}>{totalNews}</h3>
+                      </div>
+                      <div style={{ background: 'rgba(2, 132, 199, 0.05)', color: 'var(--med-blue)', padding: '10px', borderRadius: '10px' }}>
+                        <Newspaper size={20} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Slot-wise Appointment View */}
+                  <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '16px', color: 'var(--primary)' }}>Slot-wise Schedule View</h3>
+                    {slotwiseApps.length === 0 ? (
+                      <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                        No slots booked yet.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                        {slotwiseApps.slice(0, 8).map(app => (
+                          <div key={app._id} style={{
+                            padding: '14px',
+                            border: '1px solid var(--border-muted)',
+                            borderRadius: '8px',
+                            background: 'var(--bg-primary)'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                              <span style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--med-blue)' }}>{app.appointmentId}</span>
+                              <span style={{ fontSize: '0.75rem', padding: '2px 6px', borderRadius: '4px', background: 'white', fontWeight: 700, border: '1px solid var(--border-muted)' }}>
+                                {app.appointmentSlot}
                               </span>
-                            </td>
-                          </tr>
+                            </div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '4px' }}>{app.patientName}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                              <strong>Doctor:</strong> {app.doctor}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                              <strong>Date:</strong> {formatISTDate(app.appointmentDate)}
+                            </div>
+                          </div>
                         ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Recent Appointments Preview */}
+                  <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                      <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Recent Bookings</h3>
+                      <button onClick={() => setActiveTab('appointments')} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>Manage All</span>
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+
+                    <div style={{ overflowX: 'auto' }}>
+                      {appointments.length === 0 ? (
+                        <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                          No appointments booked yet.
+                        </div>
+                      ) : (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', textAlign: 'left' }}>
+                          <thead>
+                            <tr style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-muted)' }}>
+                              <th style={{ padding: '12px' }}>Appt ID</th>
+                              <th style={{ padding: '12px' }}>Patient</th>
+                              <th style={{ padding: '12px' }}>Contact</th>
+                              <th style={{ padding: '12px' }}>Department</th>
+                              <th style={{ padding: '12px' }}>Doctor</th>
+                              <th style={{ padding: '12px' }}>Date/Slot</th>
+                              <th style={{ padding: '12px' }}>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {appointments.slice(0, 5).map(app => (
+                              <tr key={app._id} style={{ borderBottom: '1px solid var(--border-muted)' }}>
+                                <td style={{ padding: '12px', fontWeight: 700, color: 'var(--med-blue)' }}>{app.appointmentId || '-'}</td>
+                                <td style={{ padding: '12px', fontWeight: 600 }}>{app.patientName}</td>
+                                <td style={{ padding: '12px' }}>{app.mobile}</td>
+                                <td style={{ padding: '12px' }}>{app.department}</td>
+                                <td style={{ padding: '12px' }}>{app.doctor}</td>
+                                <td style={{ padding: '12px' }}>
+                                  <div>{formatISTDate(app.appointmentDate)}</div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>{app.appointmentSlot}</div>
+                                </td>
+                                <td style={{ padding: '12px' }}>
+                                  <span className={`status-pill ${app.status.toLowerCase()}`}>
+                                    {app.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           {activeTab === 'appointments' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              
-              {/* Search & Filters */}
-              <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', borderRadius: '12px' }}>
-                <div style={{ position: 'relative', flexGrow: 1, minWidth: '220px' }}>
-                  <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input 
-                    type="text" 
-                    placeholder="Search by Patient name, phone, email, or Appt ID..."
-                    value={appSearch}
-                    onChange={(e) => setAppSearch(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '10px 10px 10px 36px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-muted)',
-                      fontSize: '0.9rem'
-                    }}
-                  />
+              {fetchingData ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+                  <Loader2 size={36} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
                 </div>
-
-                {/* Status Filter */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Filter size={14} style={{ color: 'var(--text-muted)' }} />
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Status:</span>
-                  <select 
-                    value={appStatusFilter} 
-                    onChange={(e) => setAppStatusFilter(e.target.value)}
-                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', backgroundColor: 'white' }}
-                  >
-                    <option value="All">All Statuses</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Confirmed">Confirmed</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Cancelled">Cancelled</option>
-                  </select>
-                </div>
-
-                {/* Department Filter */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Filter size={14} style={{ color: 'var(--text-muted)' }} />
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Dept:</span>
-                  <select 
-                    value={appDeptFilter} 
-                    onChange={(e) => setAppDeptFilter(e.target.value)}
-                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', backgroundColor: 'white' }}
-                  >
-                    <option value="All">All Departments</option>
-                    {departments.map(d => (
-                      <option key={d._id} value={d.departmentName.en}>{d.departmentName.en}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Doctor Filter */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Filter size={14} style={{ color: 'var(--text-muted)' }} />
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Doctor:</span>
-                  <select 
-                    value={appDoctorFilter} 
-                    onChange={(e) => setAppDoctorFilter(e.target.value)}
-                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', backgroundColor: 'white' }}
-                  >
-                    <option value="All">All Doctors</option>
-                    {doctors.map(d => (
-                      <option key={d._id} value={d.doctorName.en}>{d.doctorName.en}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Date Filter */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Filter size={14} style={{ color: 'var(--text-muted)' }} />
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Date:</span>
-                  <input 
-                    type="date" 
-                    value={appDateFilter} 
-                    onChange={(e) => setAppDateFilter(e.target.value)}
-                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem' }}
-                  />
-                  {appDateFilter && (
-                    <button 
-                      onClick={() => setAppDateFilter('')} 
-                      style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.8rem', cursor: 'pointer', padding: '4px' }}
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Table */}
-              <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)', borderRadius: '12px' }}>
-                <div style={{ overflowX: 'auto' }}>
-                  {appointments.length === 0 ? (
-                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      No appointments matching filters.
+              ) : (
+                <>
+                  {/* Search & Filters */}
+                  <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', borderRadius: '12px' }}>
+                    <div style={{ position: 'relative', flexGrow: 1, minWidth: '220px' }}>
+                      <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input 
+                        type="text" 
+                        placeholder="Search by Patient name, phone, email, or Appt ID..."
+                        value={appSearch}
+                        onChange={(e) => setAppSearch(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 10px 10px 36px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border-muted)',
+                          fontSize: '0.9rem'
+                        }}
+                      />
                     </div>
-                  ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', textAlign: 'left' }}>
-                      <thead>
-                        <tr style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-muted)' }}>
-                          <th style={{ padding: '12px' }}>Appt ID</th>
-                          <th style={{ padding: '12px' }}>Patient Info</th>
-                          <th style={{ padding: '12px' }}>Date / Slot</th>
-                          <th style={{ padding: '12px' }}>Department</th>
-                          <th style={{ padding: '12px' }}>Doctor</th>
-                          <th style={{ padding: '12px' }}>Message</th>
-                          <th style={{ padding: '12px' }}>Status</th>
-                          <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {appointments.map(app => (
-                          <tr key={app._id} style={{ borderBottom: '1px solid var(--border-muted)' }}>
-                            <td style={{ padding: '12px', fontWeight: 700, color: 'var(--med-blue)' }}>{app.appointmentId || '-'}</td>
-                            <td style={{ padding: '12px' }}>
-                              <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{app.patientName}</div>
-                              <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>Mob: {app.mobile}</div>
-                              {app.email && <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{app.email}</div>}
-                            </td>
-                            <td style={{ padding: '12px' }}>
-                              <div style={{ fontWeight: 500 }}>{formatISTDate(app.appointmentDate)}</div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 700 }}>{app.appointmentSlot}</div>
-                            </td>
-                            <td style={{ padding: '12px' }}>{app.department}</td>
-                            <td style={{ padding: '12px' }}>{app.doctor}</td>
-                            <td style={{ padding: '12px', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={app.message}>
-                              {app.message || '-'}
-                            </td>
-                            <td style={{ padding: '12px' }}>
-                              <span className={`status-pill ${app.status.toLowerCase()}`}>
-                                {app.status}
-                              </span>
-                            </td>
-                            <td style={{ padding: '12px', textAlign: 'right' }}>
-                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                <button 
-                                  onClick={() => navigate(`/admin/appointments/${app._id}`)}
-                                  title="View Details"
-                                  className="action-icon-btn view"
-                                  style={{ color: 'var(--med-blue)', background: 'rgba(2,132,199,0.05)', border: '1px solid rgba(2,132,199,0.15)', borderRadius: '4px', padding: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                                >
-                                  <Eye size={14} />
-                                </button>
-                                <button 
-                                  onClick={() => appointmentsApi.downloadPdf(app._id, app.appointmentId || '')}
-                                  title="Download Confirmation PDF"
-                                  className="action-icon-btn print"
-                                >
-                                  <Download size={14} />
-                                </button>
-                                {app.status === 'Pending' && (
-                                  <button 
-                                    onClick={() => handleUpdateAppStatus(app._id, 'Confirmed')}
-                                    title="Confirm Appointment"
-                                    className="action-icon-btn confirm"
-                                  >
-                                    <Check size={14} />
-                                  </button>
-                                )}
-                                {app.status === 'Confirmed' && (
-                                  <button 
-                                    onClick={() => handleUpdateAppStatus(app._id, 'Completed')}
-                                    title="Mark Completed"
-                                    className="action-icon-btn complete"
-                                  >
-                                    <CheckCircle size={14} />
-                                  </button>
-                                )}
-                                {app.status !== 'Completed' && app.status !== 'Cancelled' && (
-                                  <button 
-                                    onClick={() => handleUpdateAppStatus(app._id, 'Cancelled')}
-                                    title="Cancel Appointment"
-                                    className="action-icon-btn cancel"
-                                  >
-                                    <X size={14} />
-                                  </button>
-                                )}
-                                <button 
-                                  onClick={() => handleDeleteAppointment(app._id)}
-                                  title="Delete Appointment"
-                                  className="action-icon-btn delete"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
+
+                    {/* Status Filter */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Filter size={14} style={{ color: 'var(--text-muted)' }} />
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Status:</span>
+                      <select 
+                        value={appStatusFilter} 
+                        onChange={(e) => setAppStatusFilter(e.target.value)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', backgroundColor: 'white' }}
+                      >
+                        <option value="All">All Statuses</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
+                      </select>
+                    </div>
+
+                    {/* Department Filter */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Filter size={14} style={{ color: 'var(--text-muted)' }} />
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Dept:</span>
+                      <select 
+                        value={appDeptFilter} 
+                        onChange={(e) => setAppDeptFilter(e.target.value)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', backgroundColor: 'white', maxWidth: '180px' }}
+                      >
+                        <option value="All">All Departments</option>
+                        {departments.map(d => (
+                          <option key={d._id} value={d.departmentName.en}>{d.departmentName.en}</option>
                         ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </div>
+                      </select>
+                    </div>
+
+                    {/* Doctor Filter */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Filter size={14} style={{ color: 'var(--text-muted)' }} />
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Doctor:</span>
+                      <select 
+                        value={appDoctorFilter} 
+                        onChange={(e) => setAppDoctorFilter(e.target.value)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', backgroundColor: 'white', maxWidth: '180px' }}
+                      >
+                        <option value="All">All Doctors</option>
+                        {doctors.map(d => (
+                          <option key={d._id} value={d.doctorName.en}>{d.doctorName.en}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Date Filter */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Filter size={14} style={{ color: 'var(--text-muted)' }} />
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Date:</span>
+                      <input 
+                        type="date" 
+                        value={appDateFilter} 
+                        onChange={(e) => setAppDateFilter(e.target.value)}
+                        style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem' }}
+                      />
+                      {appDateFilter && (
+                        <button onClick={() => setAppDateFilter('')} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>Clear</button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Appointments Table */}
+                  <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)', borderRadius: '12px' }}>
+                    <div style={{ overflowX: 'auto' }}>
+                      {appointments.length === 0 ? (
+                        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                          No appointments matching filters.
+                        </div>
+                      ) : (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', textAlign: 'left' }}>
+                          <thead>
+                            <tr style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-muted)' }}>
+                              <th style={{ padding: '12px' }}>Appt ID</th>
+                              <th style={{ padding: '12px' }}>Patient Info</th>
+                              <th style={{ padding: '12px' }}>Date / Slot</th>
+                              <th style={{ padding: '12px' }}>Department</th>
+                              <th style={{ padding: '12px' }}>Doctor</th>
+                              <th style={{ padding: '12px' }}>Message</th>
+                              <th style={{ padding: '12px' }}>Status</th>
+                              <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {appointments.map(app => (
+                              <tr key={app._id} style={{ borderBottom: '1px solid var(--border-muted)' }}>
+                                <td style={{ padding: '12px', fontWeight: 700, color: 'var(--med-blue)' }}>{app.appointmentId || '-'}</td>
+                                <td style={{ padding: '12px' }}>
+                                  <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{app.patientName}</div>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>Mob: {app.mobile}</div>
+                                  {app.email && <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{app.email}</div>}
+                                </td>
+                                <td style={{ padding: '12px' }}>
+                                  <div style={{ fontWeight: 500 }}>{formatISTDate(app.appointmentDate)}</div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 700 }}>{app.appointmentSlot}</div>
+                                </td>
+                                <td style={{ padding: '12px' }}>{app.department}</td>
+                                <td style={{ padding: '12px' }}>{app.doctor}</td>
+                                <td style={{ padding: '12px', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={app.message}>
+                                  {app.message || '-'}
+                                </td>
+                                <td style={{ padding: '12px' }}>
+                                  <span className={`status-pill ${app.status.toLowerCase()}`}>
+                                    {app.status}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                    <button 
+                                      onClick={() => navigate(`/admin/appointments/${app._id}`)}
+                                      title="View Details"
+                                      className="action-icon-btn view"
+                                      style={{ color: 'var(--med-blue)', background: 'rgba(2,132,199,0.05)', border: '1px solid rgba(2,132,199,0.15)', borderRadius: '4px', padding: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                    >
+                                      <Eye size={14} />
+                                    </button>
+                                    <button 
+                                      onClick={() => appointmentsApi.downloadPdf(app._id, app.appointmentId || '')}
+                                      title="Download Confirmation PDF"
+                                      className="action-icon-btn print"
+                                    >
+                                      <Download size={14} />
+                                    </button>
+                                    {app.status === 'Pending' && (
+                                      <button 
+                                        onClick={() => handleUpdateAppStatus(app._id, 'Confirmed')}
+                                        disabled={updatingAppId !== null}
+                                        title="Confirm Appointment"
+                                        className="action-icon-btn confirm"
+                                      >
+                                        {updatingAppId === app._id ? <Loader2 size={14} className="spin-animation" /> : <Check size={14} />}
+                                      </button>
+                                    )}
+                                    {app.status === 'Confirmed' && (
+                                      <button 
+                                        onClick={() => handleUpdateAppStatus(app._id, 'Completed')}
+                                        disabled={updatingAppId !== null}
+                                        title="Mark Completed"
+                                        className="action-icon-btn complete"
+                                      >
+                                        {updatingAppId === app._id ? <Loader2 size={14} className="spin-animation" /> : <CheckCircle size={14} />}
+                                      </button>
+                                    )}
+                                    {app.status !== 'Completed' && app.status !== 'Cancelled' && (
+                                      <button 
+                                        onClick={() => handleUpdateAppStatus(app._id, 'Cancelled')}
+                                        disabled={updatingAppId !== null}
+                                        title="Cancel Appointment"
+                                        className="action-icon-btn cancel"
+                                      >
+                                        {updatingAppId === app._id ? <Loader2 size={14} className="spin-animation" /> : <X size={14} />}
+                                      </button>
+                                    )}
+                                    <button 
+                                      onClick={() => handleDeleteAppointment(app._id)}
+                                      disabled={updatingAppId !== null}
+                                      title="Delete Appointment"
+                                      className="action-icon-btn delete"
+                                    >
+                                      {updatingAppId === app._id ? <Loader2 size={14} className="spin-animation" /> : <Trash2 size={14} />}
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           {activeTab === 'schedule' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)', borderRadius: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary)', margin: 0 }}>Daily Slot Schedule Monitor</h3>
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Identify booked (Red) and available (Green) time slots for each specialist doctor</p>
-                  </div>
+              {fetchingData ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+                  <Loader2 size={36} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
                 </div>
-                
-                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px' }}>
+              ) : (
+                <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <div>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary)', margin: 0 }}>Daily Slot Schedule Monitor</h3>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>Identify booked (Red) and available (Green) time slots for each specialist doctor</p>
+                    </div>
+                  </div>
                   
-                  {/* Department Filter */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Department</span>
-                    <select 
-                      value={scheduleDept} 
-                      onChange={(e) => setScheduleDept(e.target.value)}
-                      style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', backgroundColor: 'white', minWidth: '220px' }}
-                    >
-                      <option value="All">All Departments</option>
-                      {departments.map(d => (
-                        <option key={d._id} value={d.departmentName.en}>{d.departmentName.en}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px' }}>
+                    
+                    {/* Department Filter */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Department</span>
+                      <select 
+                        value={scheduleDept} 
+                        onChange={(e) => setScheduleDept(e.target.value)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', backgroundColor: 'white', minWidth: '220px' }}
+                      >
+                        <option value="All">All Departments</option>
+                        {departments.map(d => (
+                          <option key={d._id} value={d.departmentName.en}>{d.departmentName.en}</option>
+                        ))}
+                      </select>
+                    </div>
 
-                  {/* Specialist Doctor Filter */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Specialist Doctor</span>
-                    <select 
-                      value={scheduleDoctor} 
-                      onChange={(e) => setScheduleDoctor(e.target.value)}
-                      style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', backgroundColor: 'white', minWidth: '220px' }}
-                      disabled={filteredScheduleDoctors.length === 0}
-                    >
-                      {filteredScheduleDoctors.length === 0 ? (
-                        <option value="">No doctors available</option>
-                      ) : (
-                        filteredScheduleDoctors.map(d => (
+                    {/* Specialist Doctor */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Specialist Doctor</span>
+                      <select 
+                        value={scheduleDoctor} 
+                        onChange={(e) => setScheduleDoctor(e.target.value)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', backgroundColor: 'white', minWidth: '220px' }}
+                      >
+                        {filteredScheduleDoctors.map(d => (
                           <option key={d._id} value={d.doctorName.en}>{d.doctorName.en}</option>
-                        ))
-                      )}
-                    </select>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Schedule Date Filter */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Schedule Date</span>
+                      <input 
+                        type="date" 
+                        value={scheduleDate} 
+                        onChange={(e) => setScheduleDate(e.target.value)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', minHeight: '36px' }}
+                      />
+                    </div>
                   </div>
 
-                  {/* Schedule Date Filter */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Schedule Date</span>
-                    <input 
-                      type="date" 
-                      value={scheduleDate} 
-                      onChange={(e) => setScheduleDate(e.target.value)}
-                      style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', minHeight: '36px' }}
-                    />
-                  </div>
+                  {scheduleSlotsLoading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px 0' }}>
+                      <Loader2 size={24} className="spin-animation" style={{ color: 'var(--med-blue)', marginRight: '8px' }} />
+                      <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>Loading schedule...</span>
+                    </div>
+                  ) : !scheduleDoctor ? (
+                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-muted)', borderRadius: '8px', fontSize: '0.88rem' }}>
+                      No specialist doctor selected or available in this department.
+                    </div>
+                  ) : scheduleSlotsList.length === 0 ? (
+                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-muted)', borderRadius: '8px', fontSize: '0.88rem' }}>
+                      Select a specialist doctor and booking date to visualize slot occupancy.
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+                      gap: '12px',
+                      marginTop: '10px'
+                    }}>
+                      {scheduleSlotsList.map(item => {
+                        let statusBg = 'white';
+                        let statusColor = '#0f172a';
+                        let statusBorder = '1px solid var(--border-muted)';
+                        let statusLabel = 'Available';
+
+                        if (item.status === 'Booked') {
+                          statusColor = '#ef4444';
+                          statusBg = '#fef2f2';
+                          statusBorder = '1px solid #fca5a5';
+                          statusLabel = 'Booked';
+                        } else if (item.status === 'Past') {
+                          statusColor = '#475569';
+                          statusBg = '#f1f5f9';
+                          statusBorder = '1px solid #cbd5e1';
+                          statusLabel = 'Unavailable';
+                        }
+
+                        return (
+                          <div key={item.slot} style={{
+                            padding: '10px 8px',
+                            borderRadius: '8px',
+                            background: statusBg,
+                            border: statusBorder,
+                            textAlign: 'center',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px'
+                          }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>{item.slot}</div>
+                            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: statusColor, textTransform: 'uppercase' }}>{statusLabel}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-
-                {scheduleSlotsLoading ? (
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px 0' }}>
-                    <Loader2 size={24} className="spin-animation" style={{ color: 'var(--med-blue)', marginRight: '8px' }} />
-                    <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>Loading schedule...</span>
-                  </div>
-                ) : !scheduleDoctor ? (
-                  <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-muted)', borderRadius: '8px', fontSize: '0.88rem' }}>
-                    No specialist doctor selected or available in this department.
-                  </div>
-                ) : scheduleSlotsList.length === 0 ? (
-                  <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-muted)', borderRadius: '8px', fontSize: '0.88rem' }}>
-                    Select a specialist doctor and booking date to visualize slot occupancy.
-                  </div>
-                ) : (
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-                    gap: '10px'
-                  }}>
-                    {scheduleSlotsList.map(item => {
-                      let statusColor = '#166534';
-                      let statusBg = '#f0fdf4';
-                      let statusBorder = '1px solid #bbf7d0';
-                      let statusLabel = 'Available';
-
-                      if (item.status === 'Booked') {
-                        statusColor = '#991b1b';
-                        statusBg = '#fef2f2';
-                        statusBorder = '1px solid #fca5a5';
-                        statusLabel = 'Booked';
-                      } else if (item.status === 'Past') {
-                        statusColor = '#475569';
-                        statusBg = '#f1f5f9';
-                        statusBorder = '1px solid #cbd5e1';
-                        statusLabel = 'Unavailable';
-                      }
-
-                      return (
-                        <div key={item.slot} style={{
-                          padding: '10px 8px',
-                          borderRadius: '8px',
-                          background: statusBg,
-                          border: statusBorder,
-                          textAlign: 'center',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '4px'
-                        }}>
-                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>{item.slot}</div>
-                          <div style={{ fontSize: '0.72rem', fontWeight: 800, color: statusColor, textTransform: 'uppercase' }}>{statusLabel}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           )}
 
           {activeTab === 'doctors' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '1.15rem' }}>Hospital Doctors List</h3>
-                <button onClick={handleOpenAddDoctor} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
-                  <Plus size={16} />
-                  <span>Add New Doctor</span>
-                </button>
-              </div>
-
-              {/* Grid of Doctor Cards */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: '24px'
-              }}>
-                {doctors.map(doc => (
-                  <div key={doc._id} className="glass-panel" style={{
-                    padding: '20px',
-                    background: 'white',
-                    border: '1px solid var(--border-muted)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    position: 'relative'
-                  }}>
-                    {/* Top Action Overlay */}
-                    <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '6px' }}>
-                      <button onClick={() => handleOpenEditDoctor(doc)} className="action-icon-btn edit" title="Edit Doctor">
-                        <Edit2 size={14} />
-                      </button>
-                      <button onClick={() => handleDeleteDoctor(doc._id)} className="action-icon-btn delete" title="Delete Doctor">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '16px' }}>
-                      <img 
-                        src={doc.image} 
-                        alt={doc.doctorName.en} 
-                        style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '12px', background: 'var(--bg-primary)' }}
-                      />
-                      <div>
-                        <h4 style={{ fontSize: '1.05rem', color: 'var(--primary)' }}>{doc.doctorName.en}</h4>
-                        <div style={{ fontSize: '0.82rem', color: 'var(--med-blue)', fontWeight: 600 }}>{doc.specialization.en}</div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Dept: {doc.department}</div>
-                      </div>
-                    </div>
-
-                    <div style={{ borderTop: '1px solid var(--border-muted)', paddingTop: '12px', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <div><strong>Qualification:</strong> {doc.qualification.en}</div>
-                      <div><strong>Experience:</strong> {doc.experience.en}</div>
-                    </div>
-
-                    {/* Toggle Switch Availability */}
-                    <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-primary)', padding: '10px 14px', borderRadius: '8px' }}>
-                      <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>Available for Bookings:</span>
-                      <button 
-                        onClick={() => handleToggleDoctorAvailability(doc._id)}
-                        className={`toggle-switch-btn ${doc.available ? 'on' : 'off'}`}
-                      >
-                        <div className="toggle-knob" />
-                      </button>
-                    </div>
+              {fetchingData ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+                  <Loader2 size={36} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ fontSize: '1.15rem' }}>Hospital Doctors List</h3>
+                    <button onClick={handleOpenAddDoctor} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
+                      <Plus size={16} />
+                      <span>Add New Doctor</span>
+                    </button>
                   </div>
-                ))}
-              </div>
+
+                  {/* Grid of Doctor Cards */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: '24px'
+                  }}>
+                    {doctors.map(doc => (
+                      <div key={doc._id} className="glass-panel" style={{
+                        padding: '20px',
+                        background: 'white',
+                        border: '1px solid var(--border-muted)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        position: 'relative'
+                      }}>
+                        {/* Top Action Overlay */}
+                        <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '6px' }}>
+                          <button onClick={() => handleOpenEditDoctor(doc)} className="action-icon-btn edit" title="Edit Doctor">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => handleDeleteDoctor(doc._id)} className="action-icon-btn delete" title="Delete Doctor">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '16px' }}>
+                          <img 
+                            src={doc.image} 
+                            alt={doc.doctorName.en} 
+                            style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '12px', background: 'var(--bg-primary)' }}
+                          />
+                          <div>
+                            <h4 style={{ fontSize: '1.05rem', color: 'var(--primary)' }}>{doc.doctorName.en}</h4>
+                            <div style={{ fontSize: '0.82rem', color: 'var(--med-blue)', fontWeight: 600 }}>{doc.specialization.en}</div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Dept: {doc.department}</div>
+                          </div>
+                        </div>
+
+                        <div style={{ borderTop: '1px solid var(--border-muted)', paddingTop: '12px', fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div><strong>Qualification:</strong> {doc.qualification.en}</div>
+                          <div><strong>Experience:</strong> {doc.experience.en}</div>
+                        </div>
+
+                        {/* Toggle Switch Availability */}
+                        <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-primary)', padding: '10px 14px', borderRadius: '8px' }}>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>Available for Bookings:</span>
+                          <button 
+                            onClick={() => handleToggleDoctorAvailability(doc._id)}
+                            className={`toggle-switch-btn ${doc.available ? 'on' : 'off'}`}
+                          >
+                            <div className="toggle-knob" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           {activeTab === 'departments' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '1.15rem' }}>Hospital Departments</h3>
-                <button onClick={handleOpenAddDept} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
-                  <Plus size={16} />
-                  <span>Add Department</span>
-                </button>
-              </div>
+              {fetchingData ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+                  <Loader2 size={36} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ fontSize: '1.15rem' }}>Hospital Departments</h3>
+                    <button onClick={handleOpenAddDept} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
+                      <Plus size={16} />
+                      <span>Add Department</span>
+                    </button>
+                  </div>
 
-              {/* Departments Grid */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: '20px'
-              }}>
-                {departments.map(dept => (
-                  <div key={dept._id} className="glass-panel" style={{
-                    padding: '20px',
-                    background: 'white',
-                    border: '1px solid var(--border-muted)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    minHeight: '200px'
+                  {/* Departments Grid */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: '20px'
                   }}>
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                        {dept.image ? (
-                          <img 
-                            src={dept.image} 
-                            alt={dept.departmentName.en} 
-                            style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-muted)' }}
-                          />
-                        ) : (
-                          <div style={{ background: 'var(--med-blue-light)', color: 'var(--med-blue)', width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                            {dept.icon ? dept.icon.substring(0, 2).toUpperCase() : 'DE'}
+                    {departments.map(dept => (
+                      <div key={dept._id} className="glass-panel" style={{
+                        padding: '20px',
+                        background: 'white',
+                        border: '1px solid var(--border-muted)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        minHeight: '200px'
+                      }}>
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                              {dept.image && (
+                                <img 
+                                  src={dept.image} 
+                                  alt={dept.departmentName.en} 
+                                  style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-muted)' }}
+                                />
+                              )}
+                              <div style={{ background: 'rgba(2, 132, 199, 0.08)', color: 'var(--med-blue)', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={dept.icon}>
+                                {(() => {
+                                  const IconComponent = getDeptIcon(dept.icon);
+                                  return <IconComponent size={20} />;
+                                })()}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button onClick={() => handleOpenEditDept(dept)} className="action-icon-btn edit" title="Edit Department">
+                                <Edit2 size={13} />
+                              </button>
+                              <button onClick={() => handleDeleteDept(dept._id)} className="action-icon-btn delete" title="Delete Department">
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           </div>
-                        )}
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button onClick={() => handleOpenEditDept(dept)} className="action-icon-btn edit" title="Edit Department">
-                            <Edit2 size={13} />
-                          </button>
-                          <button onClick={() => handleDeleteDept(dept._id)} className="action-icon-btn delete" title="Delete Department">
-                            <Trash2 size={13} />
-                          </button>
+                          <h4 style={{ fontSize: '1.05rem', color: 'var(--primary)', marginBottom: '8px', fontWeight: 700 }}>{dept.departmentName.en}</h4>
+                          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                            {dept.description?.en || 'No description provided.'}
+                          </p>
                         </div>
                       </div>
-                      <h4 style={{ fontSize: '1.05rem', color: 'var(--primary)', marginBottom: '8px', fontWeight: 700 }}>{dept.departmentName.en}</h4>
-                      <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                        {dept.description?.en || 'No description provided.'}
-                      </p>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </>
+              )}
             </div>
           )}
 
           {activeTab === 'news' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '1.15rem' }}>News & Updates Posts</h3>
-                <button onClick={handleOpenAddNews} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
-                  <Plus size={16} />
-                  <span>Add News Post</span>
-                </button>
-              </div>
-
-              {/* News Grid */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                gap: '24px'
-              }}>
-                {news.map(post => (
-                  <div key={post._id} className="glass-panel" style={{
-                    padding: '20px',
-                    background: 'white',
-                    border: '1px solid var(--border-muted)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    position: 'relative'
-                  }}>
-                    <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '6px', zIndex: 10 }}>
-                      <button onClick={() => handleOpenEditNews(post)} className="action-icon-btn edit" title="Edit News">
-                        <Edit2 size={14} />
-                      </button>
-                      <button onClick={() => handleDeleteNews(post._id)} className="action-icon-btn delete" title="Delete News">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-
-                    <div style={{ height: '160px', overflow: 'hidden', borderRadius: '10px', marginBottom: '14px', background: 'var(--bg-primary)' }}>
-                      <img src={post.image} alt={post.title.en} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--med-blue)', marginBottom: '6px', display: 'block' }}>
-                      {formatISTDate(post.date)}
-                    </span>
-                    <h4 style={{ fontSize: '1.1rem', color: 'var(--primary)', marginBottom: '8px', fontWeight: 700 }}>{post.title.en}</h4>
-                    <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {post.description.en}
-                    </p>
+              {fetchingData ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+                  <Loader2 size={36} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ fontSize: '1.15rem' }}>News & Updates Posts</h3>
+                    <button onClick={handleOpenAddNews} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
+                      <Plus size={16} />
+                      <span>Add News Post</span>
+                    </button>
                   </div>
-                ))}
-              </div>
+
+                  {/* News Grid */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: '24px'
+                  }}>
+                    {news.map(post => (
+                      <div key={post._id} className="glass-panel" style={{
+                        padding: '20px',
+                        background: 'white',
+                        border: '1px solid var(--border-muted)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        position: 'relative'
+                      }}>
+                        <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '6px', zIndex: 10 }}>
+                          <button onClick={() => handleOpenEditNews(post)} className="action-icon-btn edit" title="Edit News">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => handleDeleteNews(post._id)} className="action-icon-btn delete" title="Delete News">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+
+                        <div style={{ height: '160px', overflow: 'hidden', borderRadius: '10px', marginBottom: '14px', background: 'var(--bg-primary)' }}>
+                          <img src={post.image} alt={post.title.en} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--med-blue)', marginBottom: '6px', display: 'block' }}>
+                          {formatISTDate(post.date)}
+                        </span>
+                        <h4 style={{ fontSize: '1.1rem', color: 'var(--primary)', marginBottom: '8px', fontWeight: 700 }}>{post.title.en}</h4>
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {post.description.en}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           {activeTab === 'gallery' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '1.15rem' }}>Hospital Media Gallery</h3>
-                <button onClick={handleOpenAddGallery} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
-                  <Plus size={16} />
-                  <span>Upload Image</span>
-                </button>
-              </div>
-
-              {/* Gallery Grid */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-                gap: '20px'
-              }}>
-                {gallery.map(item => (
-                  <div key={item._id} className="glass-panel" style={{
-                    padding: '12px',
-                    background: 'white',
-                    border: '1px solid var(--border-muted)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    position: 'relative'
-                  }}>
-                    <button 
-                      onClick={() => handleDeleteGallery(item._id)} 
-                      style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(239, 68, 68, 0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      title="Delete Image"
-                    >
-                      <Trash2 size={13} />
+              {fetchingData ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+                  <Loader2 size={36} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ fontSize: '1.15rem' }}>Hospital Media Gallery</h3>
+                    <button onClick={handleOpenAddGallery} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
+                      <Plus size={16} />
+                      <span>Upload Image</span>
                     </button>
-                    <div style={{ height: '140px', overflow: 'hidden', borderRadius: '8px', marginBottom: '8px', background: '#f1f5f9' }}>
-                      <img src={item.image} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.title}>
-                      {item.title}
-                    </div>
-                    <span style={{ alignSelf: 'flex-start', fontSize: '0.7rem', fontWeight: 800, background: 'var(--med-blue-light)', color: 'var(--med-blue)', padding: '2px 8px', borderRadius: '4px', marginTop: '6px', textTransform: 'uppercase' }}>
-                      {item.category}
-                    </span>
                   </div>
-                ))}
-              </div>
+
+                  {/* Gallery Grid */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                    gap: '20px'
+                  }}>
+                    {gallery.map(item => (
+                      <div key={item._id} className="glass-panel" style={{
+                        padding: '12px',
+                        background: 'white',
+                        border: '1px solid var(--border-muted)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        position: 'relative'
+                      }}>
+                        <button 
+                          onClick={() => handleDeleteGallery(item._id)} 
+                          style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(239, 68, 68, 0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title="Delete Image"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                        <div style={{ height: '140px', overflow: 'hidden', borderRadius: '8px', marginBottom: '8px', background: '#f1f5f9' }}>
+                          <img src={item.image} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.title}>
+                          {item.title}
+                        </div>
+                        <span style={{ alignSelf: 'flex-start', fontSize: '0.7rem', fontWeight: 800, background: 'var(--med-blue-light)', color: 'var(--med-blue)', padding: '2px 8px', borderRadius: '4px', marginTop: '6px', textTransform: 'uppercase' }}>
+                          {item.category}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           {activeTab === 'testimonials' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '1.15rem' }}>Patient Testimonials</h3>
-                <button onClick={handleOpenAddTestimonial} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
-                  <Plus size={16} />
-                  <span>Add Testimonial</span>
-                </button>
-              </div>
-
-              {/* Testimonials List */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                gap: '24px'
-              }}>
-                {testimonials.map(item => (
-                  <div key={item._id} className="glass-panel" style={{
-                    padding: '20px',
-                    background: 'white',
-                    border: '1px solid var(--border-muted)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    position: 'relative'
-                  }}>
-                    <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '6px' }}>
-                      <button onClick={() => handleOpenEditTestimonial(item)} className="action-icon-btn edit" title="Edit Testimonial">
-                        <Edit2 size={14} />
-                      </button>
-                      <button onClick={() => handleDeleteTestimonial(item._id)} className="action-icon-btn delete" title="Delete Testimonial">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '4px', color: '#fbbf24', marginBottom: '10px' }}>
-                      {[...Array(item.rating)].map((_, i) => (
-                        <Star key={i} size={16} fill="#fbbf24" stroke="none" />
-                      ))}
-                    </div>
-
-                    <p style={{ fontSize: '0.85rem', lineHeight: 1.6, color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '14px', flexGrow: 1 }}>
-                      "{item.feedback}"
-                    </p>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <img src={item.image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'} alt={item.patientName} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
-                      <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{item.patientName}</span>
-                    </div>
+              {fetchingData ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+                  <Loader2 size={36} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ fontSize: '1.15rem' }}>Patient Testimonials</h3>
+                    <button onClick={handleOpenAddTestimonial} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
+                      <Plus size={16} />
+                      <span>Add Testimonial</span>
+                    </button>
                   </div>
-                ))}
-              </div>
+
+                  {/* Testimonials List */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: '24px'
+                  }}>
+                    {testimonials.map(item => (
+                      <div key={item._id} className="glass-panel" style={{
+                        padding: '20px',
+                        background: 'white',
+                        border: '1px solid var(--border-muted)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        position: 'relative'
+                      }}>
+                        <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '6px' }}>
+                          <button onClick={() => handleOpenEditTestimonial(item)} className="action-icon-btn edit" title="Edit Testimonial">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => handleDeleteTestimonial(item._id)} className="action-icon-btn delete" title="Delete Testimonial">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '4px', color: '#fbbf24', marginBottom: '10px' }}>
+                          {[...Array(item.rating)].map((_, i) => (
+                            <Star key={i} size={16} fill="#fbbf24" stroke="none" />
+                          ))}
+                        </div>
+
+                        <p style={{ fontSize: '0.85rem', lineHeight: 1.6, color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: '14px', flexGrow: 1 }}>
+                          "{item.feedback}"
+                        </p>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <img src={item.image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'} alt={item.patientName} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} />
+                          <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{item.patientName}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -1841,38 +2035,61 @@ const AdminDashboard: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <h3 style={{ fontSize: '1.15rem' }}>Patient Contact Enquiries</h3>
 
-              <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)' }}>
-                <div style={{ overflowX: 'auto' }}>
-                  {contacts.length === 0 ? (
-                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      No enquiries received yet.
-                    </div>
-                  ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', textAlign: 'left' }}>
-                      <thead>
-                        <tr style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-muted)' }}>
-                          <th style={{ padding: '12px' }}>Name</th>
-                          <th style={{ padding: '12px' }}>Mobile</th>
-                          <th style={{ padding: '12px' }}>Email</th>
-                          <th style={{ padding: '12px' }}>Message</th>
-                          <th style={{ padding: '12px' }}>Submitted At</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {contacts.map(c => (
-                          <tr key={c._id} style={{ borderBottom: '1px solid var(--border-muted)' }}>
-                            <td style={{ padding: '12px', fontWeight: 700 }}>{c.name}</td>
-                            <td style={{ padding: '12px', fontWeight: 600 }}>{c.mobile}</td>
-                            <td style={{ padding: '12px' }}>{c.email || '-'}</td>
-                            <td style={{ padding: '12px', maxWidth: '300px', wordBreak: 'break-word' }}>{c.message}</td>
-                            <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{formatISTDate(c.createdAt, true)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+              {fetchingData ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+                  <Loader2 size={36} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
                 </div>
-              </div>
+              ) : (
+                <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    {contacts.length === 0 ? (
+                      <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        No enquiries received yet.
+                      </div>
+                    ) : (
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', textAlign: 'left' }}>
+                        <thead>
+                          <tr style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-muted)' }}>
+                            <th style={{ padding: '12px' }}>Name</th>
+                            <th style={{ padding: '12px' }}>Mobile</th>
+                            <th style={{ padding: '12px' }}>Email</th>
+                            <th style={{ padding: '12px' }}>Message</th>
+                            <th style={{ padding: '12px' }}>Submitted At</th>
+                            <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {contacts.map(c => (
+                            <tr key={c._id} style={{ borderBottom: '1px solid var(--border-muted)' }}>
+                              <td style={{ padding: '12px', fontWeight: 700 }}>{c.name}</td>
+                              <td style={{ padding: '12px', fontWeight: 600 }}>{c.mobile}</td>
+                              <td style={{ padding: '12px' }}>{c.email || '-'}</td>
+                              <td style={{ padding: '12px', maxWidth: '300px', wordBreak: 'break-word' }}>{c.message}</td>
+                              <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{formatISTDate(c.createdAt, true)}</td>
+                              <td style={{ padding: '12px', textAlign: 'right' }}>
+                                <button 
+                                  onClick={() => handleDeleteEnquiry(c._id)}
+                                  disabled={deleteLoading}
+                                  title="Delete Enquiry"
+                                  className="action-icon-btn delete"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1880,59 +2097,66 @@ const AdminDashboard: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '600px' }}>
               <h3 style={{ fontSize: '1.15rem' }}>Dynamic Hospital Statistics</h3>
 
-              <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)' }}>
-                <form onSubmit={handleSaveStats} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Beds Setup</label>
-                    <input 
-                      type="number" 
-                      required
-                      value={statsForm.beds}
-                      onChange={e => setStatsForm({ ...statsForm, beds: parseInt(e.target.value) || 0 })}
-                      style={{ padding: '10px 12px', border: '1px solid var(--border-muted)', borderRadius: '8px', fontSize: '0.9rem' }}
-                    />
-                  </div>
+              {fetchingData ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+                  <Loader2 size={36} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
+                </div>
+              ) : (
+                <div className="glass-panel" style={{ padding: '24px', background: 'white', border: '1px solid var(--border-muted)' }}>
+                  <form onSubmit={handleSaveStats} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Beds Setup</label>
+                      <input 
+                        type="number" 
+                        required
+                        value={statsForm.beds}
+                        onChange={e => setStatsForm({ ...statsForm, beds: parseInt(e.target.value) || 0 })}
+                        style={{ padding: '10px 12px', border: '1px solid var(--border-muted)', borderRadius: '8px', fontSize: '0.9rem' }}
+                      />
+                    </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Specialists & Doctors</label>
-                    <input 
-                      type="number" 
-                      required
-                      value={statsForm.doctors}
-                      onChange={e => setStatsForm({ ...statsForm, doctors: parseInt(e.target.value) || 0 })}
-                      style={{ padding: '10px 12px', border: '1px solid var(--border-muted)', borderRadius: '8px', fontSize: '0.9rem' }}
-                    />
-                  </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Specialists & Doctors</label>
+                      <input 
+                        type="number" 
+                        required
+                        value={statsForm.doctors}
+                        onChange={e => setStatsForm({ ...statsForm, doctors: parseInt(e.target.value) || 0 })}
+                        style={{ padding: '10px 12px', border: '1px solid var(--border-muted)', borderRadius: '8px', fontSize: '0.9rem' }}
+                      />
+                    </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Campus Area Description</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="e.g. 7 Lakh+ Sq.Ft."
-                      value={statsForm.campusArea}
-                      onChange={e => setStatsForm({ ...statsForm, campusArea: e.target.value })}
-                      style={{ padding: '10px 12px', border: '1px solid var(--border-muted)', borderRadius: '8px', fontSize: '0.9rem' }}
-                    />
-                  </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Campus Area Description</label>
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="e.g. 7 Lakh+ Sq.Ft."
+                        value={statsForm.campusArea}
+                        onChange={e => setStatsForm({ ...statsForm, campusArea: e.target.value })}
+                        style={{ padding: '10px 12px', border: '1px solid var(--border-muted)', borderRadius: '8px', fontSize: '0.9rem' }}
+                      />
+                    </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Trauma / Emergency Status</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="e.g. Active or Inactive"
-                      value={statsForm.emergencyStatus}
-                      onChange={e => setStatsForm({ ...statsForm, emergencyStatus: e.target.value })}
-                      style={{ padding: '10px 12px', border: '1px solid var(--border-muted)', borderRadius: '8px', fontSize: '0.9rem' }}
-                    />
-                  </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Trauma / Emergency Status</label>
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="e.g. Active or Inactive"
+                        value={statsForm.emergencyStatus}
+                        onChange={e => setStatsForm({ ...statsForm, emergencyStatus: e.target.value })}
+                        style={{ padding: '10px 12px', border: '1px solid var(--border-muted)', borderRadius: '8px', fontSize: '0.9rem' }}
+                      />
+                    </div>
 
-                  <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '44px', marginTop: '10px' }}>
-                    Save Dynamic Stats Settings
-                  </button>
-                </form>
-              </div>
+                    <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', height: '44px', marginTop: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                      {loading && <Loader2 size={16} className="spin-animation" />}
+                      <span>Save Dynamic Stats Settings</span>
+                    </button>
+                  </form>
+                </div>
+              )}
             </div>
           )}
         </main>
@@ -2092,8 +2316,9 @@ const AdminDashboard: React.FC = () => {
               </div>
 
               {/* Submit */}
-              <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '44px', marginTop: '10px' }}>
-                {editingDoctorId ? 'Save Updates' : 'Create Record'}
+              <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', height: '44px', marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                {loading && <Loader2 size={16} className="spin-animation" />}
+                <span>{editingDoctorId ? 'Save Updates' : 'Create Record'}</span>
               </button>
             </form>
           </div>
@@ -2141,13 +2366,28 @@ const AdminDashboard: React.FC = () => {
               {/* Icon Identifier */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Icon Identifier</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. Heart, FlaskConical, Activity"
+                <select 
                   value={deptForm.icon}
                   onChange={e => setDeptForm({ ...deptForm, icon: e.target.value })}
-                  style={{ padding: '10px 12px', border: '1px solid var(--border-muted)', borderRadius: '8px', fontSize: '0.9rem' }}
-                />
+                  style={{ padding: '10px 12px', border: '1px solid var(--border-muted)', borderRadius: '8px', fontSize: '0.9rem', backgroundColor: 'white' }}
+                >
+                  <option value="Activity">Activity (General Medicine)</option>
+                  <option value="Baby">Baby (Pediatrics)</option>
+                  <option value="Bone">Bone (Orthopedics)</option>
+                  <option value="Brain">Brain (Neurology)</option>
+                  <option value="Camera">Camera (Radiology / Imaging)</option>
+                  <option value="Droplet">Droplet (Hematology / Blood Bank)</option>
+                  <option value="Ear">Ear (ENT / Otolaryngology)</option>
+                  <option value="Eye">Eye (Ophthalmology)</option>
+                  <option value="FlaskConical">FlaskConical (Pathology / Laboratory)</option>
+                  <option value="Heart">Heart (Cardiology)</option>
+                  <option value="HeartPulse">HeartPulse (Emergency & ICU)</option>
+                  <option value="Scissors">Scissors (Surgery)</option>
+                  <option value="Shield">Shield (Preventative Medicine)</option>
+                  <option value="Sparkles">Sparkles (Dermatology / Cosmetology)</option>
+                  <option value="Stethoscope">Stethoscope (General OPD / Consultant)</option>
+                  <option value="Syringe">Syringe (Anaesthesia / Vaccination)</option>
+                </select>
               </div>
 
               {/* Description (EN & MR) */}
@@ -2198,8 +2438,9 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '44px', marginTop: '10px' }}>
-                {editingDeptId ? 'Save Changes' : 'Add Department'}
+              <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', height: '44px', marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                {loading && <Loader2 size={16} className="spin-animation" />}
+                <span>{editingDeptId ? 'Save Changes' : 'Add Department'}</span>
               </button>
             </form>
           </div>
@@ -2306,8 +2547,9 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '44px', marginTop: '10px' }}>
-                {editingNewsId ? 'Save News Updates' : 'Publish Announcement'}
+              <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', height: '44px', marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                {loading && <Loader2 size={16} className="spin-animation" />}
+                <span>{editingNewsId ? 'Save News Updates' : 'Publish Announcement'}</span>
               </button>
             </form>
           </div>
@@ -2389,8 +2631,9 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '44px', marginTop: '10px' }}>
-                {editingTestimonialId ? 'Save Testimonial' : 'Publish Testimonial'}
+              <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', height: '44px', marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                {loading && <Loader2 size={16} className="spin-animation" />}
+                <span>{editingTestimonialId ? 'Save Testimonial' : 'Publish Testimonial'}</span>
               </button>
             </form>
           </div>
@@ -2460,13 +2703,102 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-primary" style={{ width: '100%', height: '44px', marginTop: '10px' }}>
-                Add to Gallery
+              <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', height: '44px', marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                {loading && <Loader2 size={16} className="spin-animation" />}
+                <span>Add to Gallery</span>
               </button>
             </form>
           </div>
         </div>
       )}
+
+      {/* Custom Delete Confirmation Popup Modal */}
+      <AnimatePresence>
+        {deleteConfirm.isOpen && (
+          <div className="modal-overlay" style={{ zIndex: 9999 }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              style={{
+                width: '100%',
+                maxWidth: '420px',
+                background: 'white',
+                borderRadius: '16px',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                overflow: 'hidden',
+                border: '1px solid var(--border-muted)',
+                display: 'flex',
+                flexDirection: 'column'
+              }}
+            >
+              {/* Header */}
+              <div style={{
+                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                color: 'white',
+                padding: '20px 24px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                <div style={{ background: 'rgba(255, 255, 255, 0.2)', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                  <AlertTriangle size={20} color="white" />
+                </div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'white', letterSpacing: '-0.3px' }}>
+                  {deleteConfirm.title}
+                </h3>
+              </div>
+              
+              {/* Message */}
+              <div style={{ padding: '24px', fontSize: '0.92rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                {deleteConfirm.message}
+              </div>
+              
+              {/* Actions Footer */}
+              <div style={{
+                padding: '16px 24px',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                background: '#f8fafc',
+                borderTop: '1px solid var(--border-muted)'
+              }}>
+                <button
+                  onClick={() => setDeleteConfirm(prev => ({ ...prev, isOpen: false }))}
+                  disabled={deleteLoading}
+                  className="btn btn-secondary"
+                  style={{ padding: '10px 20px', borderRadius: '8px', fontSize: '0.88rem', fontWeight: 600 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={deleteConfirm.onConfirm}
+                  disabled={deleteLoading}
+                  className="btn btn-primary delete-confirm-btn"
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    background: '#ef4444',
+                    borderColor: '#ef4444',
+                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  {deleteLoading && <Loader2 size={16} className="spin-animation" />}
+                  <span>Confirm Delete</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Dashboard Styling Override */}
       <style>{`

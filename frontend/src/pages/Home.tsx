@@ -5,7 +5,7 @@ import { Hero } from '../components/Hero';
 import { Stats } from '../components/Stats';
 import { Services } from '../components/Services';
 import { WhyChooseUs } from '../components/WhyChooseUs';
-import { Workflow } from '../components/Workflow';
+import { Departments } from '../components/Departments';
 import { Doctors } from '../components/Doctors';
 import { Gallery } from '../components/Gallery';
 import { News } from '../components/News';
@@ -54,7 +54,7 @@ const Home: React.FC = () => {
         <Stats language={language} />
         <Services language={language} />
         <WhyChooseUs language={language} />
-        <Workflow language={language} />
+        <Departments language={language} />
         <Doctors language={language} />
         <Gallery language={language} />
         <News language={language} />

@@ -1,6 +1,56 @@
 import axios from 'axios';
+import type { AxiosRequestConfig } from 'axios';
+
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    showLoader?: boolean;
+    hideLoader?: boolean;
+    metadata?: {
+      loaderActive?: boolean;
+      requestId?: string;
+    };
+  }
+}
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+type LoadingListener = (isLoading: boolean) => void;
+const listeners = new Set<LoadingListener>();
+
+export const addLoadingListener = (listener: LoadingListener) => {
+  listeners.add(listener);
+};
+
+export const removeLoadingListener = (listener: LoadingListener) => {
+  listeners.delete(listener);
+};
+
+const activeRequestIds = new Set<string>();
+let lastLoadingState = false;
+
+const updateLoading = (config: any, isStart: boolean) => {
+  if (!config) return;
+  if (!config.metadata) {
+    config.metadata = {};
+  }
+  
+  if (isStart) {
+    if (!config.metadata.requestId) {
+      config.metadata.requestId = Math.random().toString(36).substring(2, 11);
+    }
+    activeRequestIds.add(config.metadata.requestId);
+  } else {
+    if (config.metadata.requestId) {
+      activeRequestIds.delete(config.metadata.requestId);
+    }
+  }
+
+  const loading = activeRequestIds.size > 0;
+  if (loading !== lastLoadingState) {
+    lastLoadingState = loading;
+    listeners.forEach(cb => cb(loading));
+  }
+};
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -9,6 +59,38 @@ const api = axios.create({
     'Content-Type': 'application/json'
   }
 });
+
+api.interceptors.request.use(
+  config => {
+    const isWrite = ['post', 'put', 'patch', 'delete'].includes(config.method || '');
+    const showLoader = config.showLoader || (isWrite && !config.hideLoader);
+    
+    if (showLoader) {
+      config.metadata = config.metadata || {};
+      config.metadata.loaderActive = true;
+      updateLoading(config, true);
+    }
+    return config;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
+
+api.interceptors.response.use(
+  response => {
+    if (response.config.metadata?.loaderActive) {
+      updateLoading(response.config, false);
+    }
+    return response;
+  },
+  error => {
+    if (error.config?.metadata?.loaderActive) {
+      updateLoading(error.config, false);
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Auth API
 export const authApi = {
@@ -20,21 +102,21 @@ export const authApi = {
     const response = await api.post('/admin/logout');
     return response.data;
   },
-  checkSession: async () => {
-    const response = await api.get('/admin/current-admin');
+  checkSession: async (config?: AxiosRequestConfig) => {
+    const response = await api.get('/admin/current-admin', config);
     return response.data;
   }
 };
 
 // Doctors API
 export const doctorsApi = {
-  getAll: async (availableOnly = false) => {
+  getAll: async (availableOnly = false, config?: AxiosRequestConfig) => {
     const url = availableOnly ? '/api/doctors?available=true' : '/api/doctors';
-    const response = await api.get(url);
+    const response = await api.get(url, config);
     return response.data;
   },
-  getById: async (id: string) => {
-    const response = await api.get(`/api/doctors/${id}`);
+  getById: async (id: string, config?: AxiosRequestConfig) => {
+    const response = await api.get(`/api/doctors/${id}`, config);
     return response.data;
   },
   create: async (formData: FormData) => {
@@ -65,8 +147,8 @@ export const doctorsApi = {
 
 // Departments API
 export const departmentsApi = {
-  getAll: async () => {
-    const response = await api.get('/api/departments');
+  getAll: async (config?: AxiosRequestConfig) => {
+    const response = await api.get('/api/departments', config);
     return response.data;
   },
   create: async (formData: FormData) => {
@@ -101,8 +183,8 @@ export const appointmentsApi = {
     const response = await api.get(`/api/appointments/${id}`);
     return response.data;
   },
-  getAll: async (params?: { search?: string; status?: string; department?: string; doctor?: string; date?: string }) => {
-    const response = await api.get('/api/appointments', { params });
+  getAll: async (params?: { search?: string; status?: string; department?: string; doctor?: string; date?: string }, config?: AxiosRequestConfig) => {
+    const response = await api.get('/api/appointments', { params, ...config });
     return response.data;
   },
   update: async (id: string, data: any) => {
@@ -113,13 +195,14 @@ export const appointmentsApi = {
     const response = await api.delete(`/api/appointments/${id}`);
     return response.data;
   },
-  getStatus: async (appointmentId: string) => {
-    const response = await api.get(`/api/appointments/status/${appointmentId}`);
+  getStatus: async (appointmentId: string, config?: AxiosRequestConfig) => {
+    const response = await api.get(`/api/appointments/status/${appointmentId}`, { showLoader: true, ...config });
     return response.data;
   },
-  getAvailableSlots: async (doctorId: string, date: string) => {
+  getAvailableSlots: async (doctorId: string, date: string, config?: AxiosRequestConfig) => {
     const response = await api.get(`/api/appointments/available-slots`, {
-      params: { doctorId, date }
+      params: { doctorId, date },
+      ...config
     });
     return response.data;
   },
@@ -127,15 +210,18 @@ export const appointmentsApi = {
     const response = await api.patch(`/api/appointments/${id}/status`, { status });
     return response.data;
   },
-  search: async (appointmentId: string) => {
+  search: async (appointmentId: string, config?: AxiosRequestConfig) => {
     const response = await api.get(`/api/appointments/search`, {
-      params: { appointmentId }
+      params: { appointmentId },
+      ...config
     });
     return response.data;
   },
-  downloadPdf: async (id: string, appointmentId: string) => {
+  downloadPdf: async (id: string, appointmentId: string, config?: AxiosRequestConfig) => {
     const response = await api.get(`/api/appointments/${id}/pdf`, {
-      responseType: 'blob'
+      responseType: 'blob',
+      showLoader: true,
+      ...config
     });
     const blob = new Blob([response.data], { type: 'application/pdf' });
     const url = window.URL.createObjectURL(blob);
@@ -150,8 +236,8 @@ export const appointmentsApi = {
 
 // News API
 export const newsApi = {
-  getAll: async () => {
-    const response = await api.get('/api/news');
+  getAll: async (config?: AxiosRequestConfig) => {
+    const response = await api.get('/api/news', config);
     return response.data;
   },
   create: async (formData: FormData) => {
@@ -178,8 +264,8 @@ export const newsApi = {
 
 // Testimonials API
 export const testimonialsApi = {
-  getAll: async () => {
-    const response = await api.get('/api/testimonials');
+  getAll: async (config?: AxiosRequestConfig) => {
+    const response = await api.get('/api/testimonials', config);
     return response.data;
   },
   create: async (formData: FormData) => {
@@ -206,8 +292,8 @@ export const testimonialsApi = {
 
 // Gallery API
 export const galleryApi = {
-  getAll: async () => {
-    const response = await api.get('/api/gallery');
+  getAll: async (config?: AxiosRequestConfig) => {
+    const response = await api.get('/api/gallery', config);
     return response.data;
   },
   create: async (formData: FormData) => {
@@ -226,8 +312,8 @@ export const galleryApi = {
 
 // Stats API
 export const statsApi = {
-  get: async () => {
-    const response = await api.get('/api/stats');
+  get: async (config?: AxiosRequestConfig) => {
+    const response = await api.get('/api/stats', config);
     return response.data;
   },
   update: async (data: any) => {
@@ -238,12 +324,16 @@ export const statsApi = {
 
 // Contacts API
 export const contactsApi = {
-  getAll: async () => {
-    const response = await api.get('/api/contacts');
+  getAll: async (config?: AxiosRequestConfig) => {
+    const response = await api.get('/api/contacts', config);
     return response.data;
   },
   create: async (data: any) => {
     const response = await api.post('/api/contacts', data);
+    return response.data;
+  },
+  delete: async (id: string) => {
+    const response = await api.delete(`/api/contacts/${id}`);
     return response.data;
   }
 };

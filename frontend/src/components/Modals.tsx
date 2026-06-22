@@ -193,6 +193,17 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
     }
   }, [isOpen, language, reset]);
 
+  // Reset form status when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setIsSubmitted(false);
+      setSuccessData(null);
+      setErrorMsg('');
+      setSlotsList([]);
+      setAgeWarning('');
+    }
+  }, [isOpen]);
+
   // Load slots when doctor or date changes
   useEffect(() => {
     const loadSlots = async () => {
@@ -978,6 +989,15 @@ export const ReportModal: React.FC<ModalProps> = ({ isOpen, onClose, language })
   const [searchStatus, setSearchStatus] = useState<'idle' | 'searching' | 'success' | 'failed'>('idle');
   const [retrievedReport, setRetrievedReport] = useState<any>(null);
 
+  // Reset state when modal is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchStatus('idle');
+      setReportCode('');
+      setRetrievedReport(null);
+    }
+  }, [isOpen]);
+
   const getMetricName = (name: string, lang: Language) => {
     if (lang === 'en') return name;
     const dict: Record<string, string> = {
@@ -1734,6 +1754,10 @@ export const AppointmentStatusModal: React.FC<ModalProps> = ({ isOpen, onClose, 
       }
     } else {
       setHasAutoRun(false); // Reset when modal is closed
+      setSearchStatus('idle');
+      setAppointmentNo('');
+      setRetrievedAppointment(null);
+      setErrorMsg('');
     }
   }, [isOpen, location, hasAutoRun]);
 

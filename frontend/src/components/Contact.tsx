@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Phone, Mail, Clock, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { MapPin, Phone, Mail, Clock, Send, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { type Language, translations } from '../utils/translations';
 import { contactsApi } from '../services/api';
@@ -271,7 +271,8 @@ export const Contact: React.FC<ContactProps> = ({ language }) => {
                   disabled={loading}
                   style={{ width: '100%', height: '48px', gap: '8px', marginTop: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
                 >
-                  <Send size={16} /> {loading ? (language === 'en' ? 'Sending...' : 'पाठवत आहे...') : t.formSubmit}
+                  {loading ? <Loader2 size={16} className="spin-animation" /> : <Send size={16} />}
+                  <span>{loading ? (language === 'en' ? 'Sending...' : 'पाठवत आहे...') : t.formSubmit}</span>
                 </button>
               </form>
             ) : (

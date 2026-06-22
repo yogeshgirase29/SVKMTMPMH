@@ -335,7 +335,8 @@ const ViewAppointment: React.FC = () => {
                 className="btn btn-primary"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 18px', fontSize: '0.88rem' }}
               >
-                <Check size={16} /> Confirm Appointment
+                {actionLoading ? <Loader2 size={16} className="spin-animation" /> : <Check size={16} />}
+                Confirm Appointment
               </button>
             )}
             {appointment.status === 'Confirmed' && (
@@ -345,7 +346,8 @@ const ViewAppointment: React.FC = () => {
                 className="btn btn-primary"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 18px', fontSize: '0.88rem', background: '#0d9488', borderColor: '#0d9488' }}
               >
-                <CheckCircle size={16} /> Mark Completed
+                {actionLoading ? <Loader2 size={16} className="spin-animation" /> : <CheckCircle size={16} />}
+                Mark Completed
               </button>
             )}
             {appointment.status !== 'Completed' && appointment.status !== 'Cancelled' && (
@@ -355,7 +357,8 @@ const ViewAppointment: React.FC = () => {
                 className="btn btn-secondary"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#ef4444', borderColor: 'rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.03)' }}
               >
-                <X size={16} /> Cancel Appointment
+                {actionLoading ? <Loader2 size={16} className="spin-animation" /> : <X size={16} />}
+                Cancel Appointment
               </button>
             )}
           </div>

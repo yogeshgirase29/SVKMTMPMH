@@ -26,7 +26,7 @@ const calculateAge = (dobString) => {
   const todayIST = getISTDateString(); // "YYYY-MM-DD"
   const [todayYear, todayMonth, todayDay] = todayIST.split('-').map(Number);
   const [birthYear, birthMonth, birthDay] = dobString.split('-').map(Number);
-  
+
   let age = todayYear - birthYear;
   const m = todayMonth - birthMonth;
   if (m < 0 || (m === 0 && todayDay < birthDay)) {
@@ -131,22 +131,22 @@ const createAppointment = async (req, res, next) => {
       return res.status(400).json({ success: false, message: error.details[0].message });
     }
 
-    let { 
+    let {
       title,
       firstName,
       middleName,
       lastName,
       dateOfBirth,
-      mobile, 
-      email, 
-      department, 
-      departmentMr, 
-      doctor, 
-      doctorMr, 
-      appointmentDate, 
-      appointmentSlot, 
-      message, 
-      status 
+      mobile,
+      email,
+      department,
+      departmentMr,
+      doctor,
+      doctorMr,
+      appointmentDate,
+      appointmentSlot,
+      message,
+      status
     } = req.body;
 
     // Fetch Marathi translations directly from DB to prevent client-side encoding or missing translation issues
@@ -242,19 +242,19 @@ const createAppointment = async (req, res, next) => {
 // Update appointment details (Admin editing / rescheduling)
 const updateAppointment = async (req, res, next) => {
   try {
-    let { 
+    let {
       title,
       firstName,
       middleName,
       lastName,
       dateOfBirth,
-      status, 
-      doctor, 
+      status,
+      doctor,
       doctorMr,
-      department, 
+      department,
       departmentMr,
-      appointmentDate, 
-      appointmentSlot, 
+      appointmentDate,
+      appointmentSlot,
       message,
       mobile,
       email
@@ -539,37 +539,37 @@ const getAppointmentPdf = async (req, res, next) => {
 
     // 1. Hospital Header Block (Bilingual)
     doc.fillColor(primaryColor)
-       .font('Poppins-Bold')
-       .fontSize(17)
-       .text("SVKM'S TMPM HOSPITAL", { align: 'center' });
+      .font('Poppins-Bold')
+      .fontSize(17)
+      .text("SVKM'S TMPM HOSPITAL", { align: 'center' });
 
     doc.fillColor('#0369a1')
-       .font('Poppins-Bold')
-       .fontSize(11)
-       .text("एस. व्ही. के. एम. चे टी. एम. पी. एम. रुग्णालय", { align: 'center' });
+      .font('Poppins-Bold')
+      .fontSize(11)
+      .text("एस. व्ही. के. एम. चे टी. एम. पी. एम. रुग्णालय", { align: 'center' });
 
     doc.fillColor(secondaryTextColor)
-       .font('Poppins-Regular')
-       .fontSize(8)
-       .text("Kharde BK, Shirpur, District Dhule, Maharashtra - 425405", { align: 'center' })
-       .text("Phone: +91 99693 79023 / +91 2563 295550  |  Email: info.tmpmhospital@svkm.ac.in", { align: 'center' });
+      .font('Poppins-Regular')
+      .fontSize(8)
+      .text("Kharde BK, Shirpur, District Dhule, Maharashtra - 425405", { align: 'center' })
+      .text("Phone: +91 99693 79023 / +91 2563 295550  |  Email: info.tmpmhospital@svkm.ac.in", { align: 'center' });
 
     doc.moveDown(0.3);
 
     // Divider line
     doc.strokeColor(primaryColor)
-       .lineWidth(1.5)
-       .moveTo(40, doc.y)
-       .lineTo(555, doc.y)
-       .stroke();
+      .lineWidth(1.5)
+      .moveTo(40, doc.y)
+      .lineTo(555, doc.y)
+      .stroke();
 
     doc.moveDown(0.5);
 
     // 2. Voucher Title (No character spacing for clean Devanagari rendering)
     doc.fillColor(textColor)
-       .font('Poppins-Bold')
-       .fontSize(11)
-       .text("APPOINTMENT CONFIRMATION VOUCHER / अपॉइंटमेंट व्हाउचर", { align: 'center' });
+      .font('Poppins-Bold')
+      .fontSize(11)
+      .text("APPOINTMENT CONFIRMATION VOUCHER / अपॉइंटमेंट व्हाउचर", { align: 'center' });
 
     doc.moveDown(0.6);
 
@@ -578,17 +578,17 @@ const getAppointmentPdf = async (req, res, next) => {
 
     // Left Reference Card
     doc.roundedRect(45, startY, 270, 120, 6)
-       .fill('#f8fafc');
+      .fill('#f8fafc');
     doc.roundedRect(45, startY, 270, 120, 6)
-       .strokeColor(borderColor)
-       .lineWidth(1)
-       .stroke();
+      .strokeColor(borderColor)
+      .lineWidth(1)
+      .stroke();
     // Add blue left border accent
     doc.strokeColor(primaryColor)
-       .lineWidth(3)
-       .moveTo(45, startY + 4)
-       .lineTo(45, startY + 116)
-       .stroke();
+      .lineWidth(3)
+      .moveTo(45, startY + 4)
+      .lineTo(45, startY + 116)
+      .stroke();
 
     // Reference Card Content
     doc.fillColor(primaryColor).font('Poppins-Bold').fontSize(9).text("Appointment Reference / संदर्भ", 60, startY + 10);
@@ -599,29 +599,39 @@ const getAppointmentPdf = async (req, res, next) => {
 
     doc.fillColor(secondaryTextColor).font('Poppins-Regular').fontSize(7).text("BOOKING DATE & TIME / बुकिंग वेळ", 60, startY + 59);
     doc.fillColor(textColor).font('Poppins-Regular').fontSize(8).text(
-      new Date(appointment.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + " IST", 
-      60, 
+      new Date(appointment.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + " IST",
+      60,
       startY + 68
     );
 
     doc.fillColor(secondaryTextColor).font('Poppins-Regular').fontSize(7).text("STATUS / स्थिती", 60, startY + 86);
-    const statusCol = appointment.status === 'Confirmed' ? '#15803d' : appointment.status === 'Cancelled' ? '#b91c1c' : '#d97706';
-    const statusMr = appointment.status === 'Confirmed' ? 'निश्चित (Confirmed)' : appointment.status === 'Cancelled' ? 'रद्द (Cancelled)' : 'प्रलंबित (Pending)';
+    let statusCol = '#d97706';
+    let statusMr = 'Pending (प्रलंबित)';
+    if (appointment.status === 'Confirmed') {
+      statusCol = '#15803d';
+      statusMr = 'Confirmed (निश्चित)';
+    } else if (appointment.status === 'Completed') {
+      statusCol = '#1d4ed8';
+      statusMr = 'Completed (पूर्ण)';
+    } else if (appointment.status === 'Cancelled') {
+      statusCol = '#b91c1c';
+      statusMr = 'Cancelled (रद्द)';
+    }
     doc.fillColor(statusCol).font('Poppins-Bold').fontSize(8.5).text(statusMr, 60, startY + 95);
 
     // Right QR Card
     doc.roundedRect(330, startY, 220, 120, 6)
-       .fill('#f8fafc');
+      .fill('#f8fafc');
     doc.roundedRect(330, startY, 220, 120, 6)
-       .strokeColor(borderColor)
-       .lineWidth(1)
-       .stroke();
+      .strokeColor(borderColor)
+      .lineWidth(1)
+      .stroke();
     // Add blue left border accent
     doc.strokeColor(primaryColor)
-       .lineWidth(3)
-       .moveTo(330, startY + 4)
-       .lineTo(330, startY + 116)
-       .stroke();
+      .lineWidth(3)
+      .moveTo(330, startY + 4)
+      .lineTo(330, startY + 116)
+      .stroke();
 
     // Determine frontend base URL dynamically from request header (referer) or env
     let frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -646,17 +656,17 @@ const getAppointmentPdf = async (req, res, next) => {
     const patientY = startY + 132;
 
     doc.roundedRect(45, patientY, 505, 100, 6)
-       .fill('#f8fafc');
+      .fill('#f8fafc');
     doc.roundedRect(45, patientY, 505, 100, 6)
-       .strokeColor(borderColor)
-       .lineWidth(1)
-       .stroke();
+      .strokeColor(borderColor)
+      .lineWidth(1)
+      .stroke();
     // Add blue left border accent
     doc.strokeColor(primaryColor)
-       .lineWidth(3)
-       .moveTo(45, patientY + 4)
-       .lineTo(45, patientY + 96)
-       .stroke();
+      .lineWidth(3)
+      .moveTo(45, patientY + 4)
+      .lineTo(45, patientY + 96)
+      .stroke();
 
     doc.fillColor(primaryColor).font('Poppins-Bold').fontSize(9).text("Patient Information / रुग्णाची माहिती", 60, patientY + 10);
     doc.strokeColor(borderColor).lineWidth(0.8).moveTo(60, patientY + 23).lineTo(535, patientY + 23).stroke();
@@ -674,8 +684,8 @@ const getAppointmentPdf = async (req, res, next) => {
 
     doc.fillColor(secondaryTextColor).font(labelFont).fontSize(labelSize).text("DATE OF BIRTH / जन्म तारीख", 300, patientY + 29);
     doc.fillColor(textColor).font(valFont).fontSize(valSize).text(
-      new Date(appointment.dateOfBirth).toLocaleDateString('en-IN'), 
-      300, 
+      new Date(appointment.dateOfBirth).toLocaleDateString('en-IN'),
+      300,
       patientY + 38
     );
 
@@ -693,17 +703,17 @@ const getAppointmentPdf = async (req, res, next) => {
     const clinicalY = patientY + 112;
 
     doc.roundedRect(45, clinicalY, 505, 100, 6)
-       .fill('#f8fafc');
+      .fill('#f8fafc');
     doc.roundedRect(45, clinicalY, 505, 100, 6)
-       .strokeColor(borderColor)
-       .lineWidth(1)
-       .stroke();
+      .strokeColor(borderColor)
+      .lineWidth(1)
+      .stroke();
     // Add blue left border accent
     doc.strokeColor(primaryColor)
-       .lineWidth(3)
-       .moveTo(45, clinicalY + 4)
-       .lineTo(45, clinicalY + 96)
-       .stroke();
+      .lineWidth(3)
+      .moveTo(45, clinicalY + 4)
+      .lineTo(45, clinicalY + 96)
+      .stroke();
 
     doc.fillColor(primaryColor).font('Poppins-Bold').fontSize(9).text("Appointment Details / तपशील", 60, clinicalY + 10);
     doc.strokeColor(borderColor).lineWidth(0.8).moveTo(60, clinicalY + 23).lineTo(535, clinicalY + 23).stroke();
@@ -720,8 +730,8 @@ const getAppointmentPdf = async (req, res, next) => {
     // Details Grid Row 2
     doc.fillColor(secondaryTextColor).font(labelFont).fontSize(labelSize).text("DATE / तारीख", 60, clinicalY + 62);
     doc.fillColor(textColor).font(valFont).fontSize(valSize).text(
-      new Date(appointment.appointmentDate).toLocaleDateString('en-IN'), 
-      60, 
+      new Date(appointment.appointmentDate).toLocaleDateString('en-IN'),
+      60,
       clinicalY + 71
     );
 
@@ -735,25 +745,25 @@ const getAppointmentPdf = async (req, res, next) => {
     const notesCardHeight = Math.max(65, 10 + 13 + 6 + textHeight + 10); // padding, title, spacing, text, padding
 
     doc.roundedRect(45, notesY, 505, notesCardHeight, 6)
-       .fill('#f8fafc');
+      .fill('#f8fafc');
     doc.roundedRect(45, notesY, 505, notesCardHeight, 6)
-       .strokeColor(borderColor)
-       .lineWidth(1)
-       .stroke();
+      .strokeColor(borderColor)
+      .lineWidth(1)
+      .stroke();
     // Add blue left border accent
     doc.strokeColor(primaryColor)
-       .lineWidth(3)
-       .moveTo(45, notesY + 4)
-       .lineTo(45, notesY + notesCardHeight - 4)
-       .stroke();
+      .lineWidth(3)
+      .moveTo(45, notesY + 4)
+      .lineTo(45, notesY + notesCardHeight - 4)
+      .stroke();
 
     doc.fillColor(primaryColor).font('Poppins-Bold').fontSize(9).text("Symptoms / Instructions (लक्षणे / सूचना)", 60, notesY + 10);
     doc.strokeColor(borderColor).lineWidth(0.8).moveTo(60, notesY + 23).lineTo(535, notesY + 23).stroke();
 
     doc.fillColor(textColor).font('Poppins-Regular').fontSize(8).text(
-      messageText, 
-      60, 
-      notesY + 29, 
+      messageText,
+      60,
+      notesY + 29,
       { width: 475, align: 'left' }
     );
 
@@ -774,17 +784,17 @@ const getAppointmentPdf = async (req, res, next) => {
     const instBoxHeight = 10 + 13 + 5 + h1 + 5 + h2 + 5 + h3 + 6 + hGen + 10;
 
     doc.roundedRect(45, instY, 505, instBoxHeight, 6)
-       .fill('#fffbeb');
+      .fill('#fffbeb');
     doc.roundedRect(45, instY, 505, instBoxHeight, 6)
-       .strokeColor('#fde68a')
-       .lineWidth(1)
-       .stroke();
+      .strokeColor('#fde68a')
+      .lineWidth(1)
+      .stroke();
     // Add amber left border accent
     doc.strokeColor('#d97706')
-       .lineWidth(3)
-       .moveTo(45, instY + 4)
-       .lineTo(45, instY + instBoxHeight - 4)
-       .stroke();
+      .lineWidth(3)
+      .moveTo(45, instY + 4)
+      .lineTo(45, instY + instBoxHeight - 4)
+      .stroke();
 
     doc.fillColor('#78350f').font('Poppins-Bold').fontSize(8.5).text("VISITATION INSTRUCTIONS / भेट देण्याबाबत मार्गदर्शक सूचना:", 60, instY + 10);
 
@@ -799,11 +809,11 @@ const getAppointmentPdf = async (req, res, next) => {
     // 8. Footer Disclaimer
     const footerY = instY + instBoxHeight + 12;
     doc.strokeColor(borderColor).lineWidth(1).moveTo(40, footerY).lineTo(555, footerY).stroke();
-    
+
     doc.fillColor(primaryColor).font('Poppins-Bold').fontSize(9.5).text(
-      "SVKM'S TMPM HOSPITAL - Caring for Your Health, Always! / आपल्या आरोग्याची काळजी, सदैव!", 
-      40, 
-      footerY + 10, 
+      "SVKM'S TMPM HOSPITAL - Caring for Your Health, Always! / आपल्या आरोग्याची काळजी, सदैव!",
+      40,
+      footerY + 10,
       { align: 'center', width: 515 }
     );
 

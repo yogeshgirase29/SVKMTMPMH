@@ -33,7 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({ language, setLanguage, onOpenApp
     { name: t.navHome, href: '#home' },
     { name: t.navServices, href: '#services' },
     { name: t.navWhyUs, href: '#why-us' },
-    { name: t.navWorkflow, href: '#workflow' },
+    { name: t.navWorkflow, href: '#departments' },
     { name: t.navDoctors, href: '#doctors' },
     { name: t.navGallery, href: '#gallery' },
     { name: t.navNews, href: '#news' },

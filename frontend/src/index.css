@@ -320,3 +320,11 @@ button, input, textarea, select {
   display: flex;
   flex-direction: column;
 }
+
+/* Spin animation for icons/loaders */
+.spin-animation {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
