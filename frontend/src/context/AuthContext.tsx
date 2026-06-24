@@ -51,6 +51,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const data = await authApi.login(credentials);
       if (data.success) {
+        if (data.token) {
+          localStorage.setItem('adminToken', data.token);
+        }
         setIsAuthenticated(true);
         setAdminUser(data.admin);
       } else {
@@ -72,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
+      localStorage.removeItem('adminToken');
       setIsAuthenticated(false);
       setAdminUser(null);
       setLoading(false);

@@ -62,6 +62,15 @@ const api = axios.create({
 
 api.interceptors.request.use(
   config => {
+    // Attach JWT token if present
+    const token = localStorage.getItem('adminToken');
+    if (token) {
+      if (!config.headers) {
+        config.headers = {} as any;
+      }
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
     const isWrite = ['post', 'put', 'patch', 'delete'].includes(config.method || '');
     const showLoader = config.showLoader || (isWrite && !config.hideLoader);
     
