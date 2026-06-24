@@ -75,8 +75,50 @@ const deleteGallery = async (req, res, next) => {
   }
 };
 
+// Update a gallery item (Admin)
+const updateGallery = async (req, res, next) => {
+  try {
+    const { error } = galleryJoiSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ success: false, message: error.details[0].message });
+    }
+
+    const item = await Gallery.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Gallery item not found' });
+    }
+
+    const { title, category } = req.body;
+    item.title = title;
+    item.category = category;
+
+    if (req.file) {
+      // Delete old image from Cloudinary
+      if (item.image) {
+        try {
+          const publicId = item.image.split('/').pop().split('.')[0];
+          await cloudinary.uploader.destroy(`hospital-gallery/${publicId}`);
+        } catch (err) {
+          console.error('Failed to delete old gallery image:', err);
+        }
+      }
+      item.image = req.file.path;
+    }
+
+    await item.save();
+    return res.status(200).json({
+      success: true,
+      message: 'Gallery item updated successfully',
+      gallery: item
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllGallery,
   createGallery,
-  deleteGallery
+  deleteGallery,
+  updateGallery
 };

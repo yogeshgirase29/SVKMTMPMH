@@ -21,6 +21,14 @@ const AdminLogin: React.FC = () => {
     }
   }, [isAuthenticated, navigate]);
 
+  // Check if logged out due to inactivity
+  useEffect(() => {
+    if (sessionStorage.getItem('inactiveLogout') === 'true') {
+      setErrorMessage('Your session has expired due to inactivity. Please log in again.');
+      sessionStorage.removeItem('inactiveLogout');
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {

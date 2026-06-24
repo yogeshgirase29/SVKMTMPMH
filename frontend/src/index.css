@@ -328,3 +328,14 @@ button, input, textarea, select {
 @keyframes spin {
   100% { transform: rotate(360deg); }
 }
+
+/* Hover effects for dashboard metrics */
+.stat-card-hover {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s ease;
+}
+.stat-card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02) !important;
+  border-color: rgba(2, 132, 199, 0.2) !important;
+}
+

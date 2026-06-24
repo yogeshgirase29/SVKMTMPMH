@@ -30,6 +30,24 @@ const DoctorSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  leaveSchedule: [
+    {
+      leaveType: {
+        type: String,
+        enum: ['Annual Leave', 'Conference', 'Training', 'Emergency Leave', 'Personal Leave', 'Hospital Duty Outside Campus', 'Other'],
+        required: true
+      },
+      startDate: { type: Date, required: true },
+      endDate: { type: Date, required: true },
+      reason: { type: String, maxLength: 250 },
+      status: {
+        type: String,
+        enum: ['Active', 'Cancelled'],
+        default: 'Active'
+      },
+      createdAt: { type: Date, default: Date.now }
+    }
+  ],
   createdAt: {
     type: Date,
     default: Date.now

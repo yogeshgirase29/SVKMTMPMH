@@ -150,12 +150,13 @@ const createAppointment = async (req, res, next) => {
     } = req.body;
 
     // Fetch Marathi translations directly from DB to prevent client-side encoding or missing translation issues
+    let dbDoc = null;
     try {
       const dbDept = await Department.findOne({ "departmentName.en": department });
       if (dbDept && dbDept.departmentName && dbDept.departmentName.mr) {
         departmentMr = dbDept.departmentName.mr;
       }
-      const dbDoc = await Doctor.findOne({ "doctorName.en": doctor });
+      dbDoc = await Doctor.findOne({ "doctorName.en": doctor });
       if (dbDoc && dbDoc.doctorName && dbDoc.doctorName.mr) {
         doctorMr = dbDoc.doctorName.mr;
       }
@@ -163,10 +164,33 @@ const createAppointment = async (req, res, next) => {
       console.error('Failed to look up Marathi translations during appointment creation:', lookupErr);
     }
 
+    if (!dbDoc) {
+      return res.status(404).json({ success: false, message: 'Doctor not found.' });
+    }
+
+    if (!dbDoc.available) {
+      return res.status(400).json({ success: false, message: 'Doctor is currently unavailable.' });
+    }
+
     const calculatedAge = calculateAge(dateOfBirth);
 
     // Prevent double booking for the same doctor, date, and slot
     const selectedDate = getISTMidnightDate(appointmentDate);
+
+    // Check leaves
+    if (dbDoc.leaveSchedule && dbDoc.leaveSchedule.length > 0) {
+      const activeLeaves = dbDoc.leaveSchedule.filter(l => l.status === 'Active');
+      for (const leave of activeLeaves) {
+        const start = getISTMidnightDate(leave.startDate);
+        const end = getISTMidnightDate(leave.endDate);
+        if (selectedDate >= start && selectedDate <= end) {
+          return res.status(400).json({
+            success: false,
+            message: 'Doctor is unavailable on selected date.'
+          });
+        }
+      }
+    }
 
     // If booking for today, check that the slot time has not already passed in IST
     const selectedDateStr = getISTDateString(selectedDate);
@@ -291,6 +315,30 @@ const updateAppointment = async (req, res, next) => {
     const checkSlot = appointmentSlot || appointment.appointmentSlot;
 
     if (appointmentDate || appointmentSlot || doctor) {
+      const dbDoc = await Doctor.findOne({ "doctorName.en": checkDoctor });
+      if (!dbDoc) {
+        return res.status(404).json({ success: false, message: 'Doctor not found.' });
+      }
+
+      if (!dbDoc.available) {
+        return res.status(400).json({ success: false, message: 'Selected doctor is currently unavailable.' });
+      }
+
+      // Check leaves
+      if (dbDoc.leaveSchedule && dbDoc.leaveSchedule.length > 0) {
+        const activeLeaves = dbDoc.leaveSchedule.filter(l => l.status === 'Active');
+        for (const leave of activeLeaves) {
+          const start = getISTMidnightDate(leave.startDate);
+          const end = getISTMidnightDate(leave.endDate);
+          if (checkDate >= start && checkDate <= end) {
+            return res.status(400).json({
+              success: false,
+              message: 'Doctor is unavailable on selected date.'
+            });
+          }
+        }
+      }
+
       const doubleBooked = await Appointment.findOne({
         _id: { $ne: appointment._id },
         doctor: checkDoctor,
@@ -435,9 +483,50 @@ const getAvailableSlots = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Doctor not found.' });
     }
 
-    const selectedDate = new Date(date);
-    if (isNaN(selectedDate.getTime())) {
-      return res.status(400).json({ success: false, message: 'Invalid date format.' });
+    const selectedDate = getISTMidnightDate(date);
+    let onLeave = false;
+    let leaveDetails = null;
+
+    if (doctor.leaveSchedule && doctor.leaveSchedule.length > 0) {
+      const activeLeaves = doctor.leaveSchedule.filter(l => l.status === 'Active');
+      for (const leave of activeLeaves) {
+        const start = getISTMidnightDate(leave.startDate);
+        const end = getISTMidnightDate(leave.endDate);
+        if (selectedDate >= start && selectedDate <= end) {
+          onLeave = true;
+          leaveDetails = leave;
+          break;
+        }
+      }
+    }
+
+    if (onLeave) {
+      const allSlots = [
+        '08:00 AM', '08:30 AM', '09:00 AM', '09:30 AM',
+        '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
+        '12:00 PM', '12:30 PM', '01:00 PM', '01:30 PM',
+        '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM',
+        '04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM'
+      ];
+      const slotsData = allSlots.map(slot => ({
+        slot,
+        status: 'Unavailable',
+        selectable: false
+      }));
+      return res.status(200).json({
+        success: true,
+        doctorId,
+        date,
+        onLeave: true,
+        leaveDetails: {
+          leaveType: leaveDetails.leaveType,
+          startDate: getISTDateString(leaveDetails.startDate),
+          endDate: getISTDateString(leaveDetails.endDate),
+          reason: leaveDetails.reason
+        },
+        slots: [],
+        slotsData
+      });
     }
 
     const selectedDateStr = date; // "YYYY-MM-DD"

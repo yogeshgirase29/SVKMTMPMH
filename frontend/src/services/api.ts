@@ -63,7 +63,7 @@ const api = axios.create({
 api.interceptors.request.use(
   config => {
     // Attach JWT token if present
-    const token = localStorage.getItem('adminToken');
+    const token = sessionStorage.getItem('adminToken');
     if (token) {
       if (!config.headers) {
         config.headers = {} as any;
@@ -150,6 +150,26 @@ export const doctorsApi = {
   },
   toggleStatus: async (id: string) => {
     const response = await api.patch(`/api/doctors/${id}/status`);
+    return response.data;
+  },
+  getLeaves: async (doctorId: string) => {
+    const response = await api.get(`/api/doctors/${doctorId}/leaves`);
+    return response.data;
+  },
+  addLeave: async (doctorId: string, data: any) => {
+    const response = await api.post(`/api/doctors/${doctorId}/leaves`, data);
+    return response.data;
+  },
+  updateLeave: async (doctorId: string, leaveId: string, data: any) => {
+    const response = await api.put(`/api/doctors/${doctorId}/leaves/${leaveId}`, data);
+    return response.data;
+  },
+  deleteLeave: async (doctorId: string, leaveId: string) => {
+    const response = await api.delete(`/api/doctors/${doctorId}/leaves/${leaveId}`);
+    return response.data;
+  },
+  getCalendarStatus: async (doctorId: string, month: string) => {
+    const response = await api.get(`/api/doctors/${doctorId}/calendar`, { params: { month } });
     return response.data;
   }
 };
@@ -307,6 +327,14 @@ export const galleryApi = {
   },
   create: async (formData: FormData) => {
     const response = await api.post('/api/gallery', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  },
+  update: async (id: string, formData: FormData) => {
+    const response = await api.put(`/api/gallery/${id}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }

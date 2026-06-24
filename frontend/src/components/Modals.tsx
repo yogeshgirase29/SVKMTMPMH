@@ -122,6 +122,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
   const [slotsList, setSlotsList] = useState<{ slot: string; status: 'Available' | 'Booked' | 'Past'; selectable: boolean }[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [ageWarning, setAgeWarning] = useState('');
+  const [leaveMessage, setLeaveMessage] = useState('');
 
   const watchDoctor = watch('doctor');
   const watchDate = watch('appointmentDate');
@@ -201,6 +202,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
       setErrorMsg('');
       setSlotsList([]);
       setAgeWarning('');
+      setLeaveMessage('');
     }
   }, [isOpen]);
 
@@ -218,22 +220,48 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
         if (doc) {
           const res = await appointmentsApi.getAvailableSlots(doc._id, watchDate);
           if (res.success) {
-            if (res.slotsData) {
-              setSlotsList(res.slotsData);
-              const currentSlot = getValues('appointmentSlot');
-              const foundSlot = res.slotsData.find((s: any) => s.slot === currentSlot);
-              if (!foundSlot || !foundSlot.selectable) {
-                setValue('appointmentSlot', '', { shouldValidate: true });
-              }
+            if (res.onLeave) {
+              setSlotsList([]);
+              const formatSimpleDate = (dStr: string) => {
+                const dateObj = new Date(dStr);
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const year = dateObj.getFullYear();
+                return `${day}/${month}/${year}`;
+              };
+              const startFormatted = res.leaveDetails ? formatSimpleDate(res.leaveDetails.startDate) : '';
+              const endFormatted = res.leaveDetails ? formatSimpleDate(res.leaveDetails.endDate) : '';
+              const cleanDocNameEn = doc.doctorName.en.startsWith('Dr.') ? doc.doctorName.en : `Dr. ${doc.doctorName.en}`;
+              const docNameLang = doc.doctorName[language] || doc.doctorName.en;
+              const cleanDocNameLang = docNameLang.startsWith('Dr.') || docNameLang.startsWith('डॉ.')
+                ? docNameLang
+                : language === 'en'
+                  ? `Dr. ${docNameLang}`
+                  : `डॉ. ${docNameLang}`;
+
+              setLeaveMessage(
+                language === 'en'
+                  ? `${cleanDocNameEn} is unavailable from ${startFormatted} to ${endFormatted}.`
+                  : `${cleanDocNameLang} ${startFormatted} ते ${endFormatted} दरम्यान अनुपलब्ध आहेत.`
+              );
             } else {
-              // Fallback
-              const allSlots = [
-                '08:00 AM', '08:30 AM', '09:00 AM', '09:30 AM',
-                '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
-                '12:00 PM', '12:30 PM', '01:00 PM', '01:30 PM',
-                '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM',
-                '04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM'
-              ];
+              setLeaveMessage('');
+              if (res.slotsData) {
+                setSlotsList(res.slotsData);
+                const currentSlot = getValues('appointmentSlot');
+                const foundSlot = res.slotsData.find((s: any) => s.slot === currentSlot);
+                if (!foundSlot || !foundSlot.selectable) {
+                  setValue('appointmentSlot', '', { shouldValidate: true });
+                }
+              } else {
+                // Fallback
+                const allSlots = [
+                  '08:00 AM', '08:30 AM', '09:00 AM', '09:30 AM',
+                  '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
+                  '12:00 PM', '12:30 PM', '01:00 PM', '01:30 PM',
+                  '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM',
+                  '04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM'
+                ];
               const activeSlots = res.slots || [];
               const reconstructed = allSlots.map(slot => {
                 const isAvailable = activeSlots.includes(slot);
@@ -251,6 +279,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
             }
           }
         }
+      }
       } catch (err) {
         console.error('Failed to load slots:', err);
       } finally {
@@ -362,6 +391,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
     setErrorMsg('');
     setSlotsList([]);
     setAgeWarning('');
+    setLeaveMessage('');
     onClose();
   };
 
@@ -738,7 +768,25 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.slot}</label>
 
-                      {!watchDate ? (
+                      {leaveMessage ? (
+                        <div style={{
+                          fontSize: '0.88rem',
+                          color: '#ea580c',
+                          fontWeight: 600,
+                          padding: '12px',
+                          border: '1px solid #ffedd5',
+                          borderRadius: '8px',
+                          textAlign: 'center',
+                          background: '#fff7ed',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px'
+                        }}>
+                          <AlertCircle size={16} />
+                          <span>{leaveMessage}</span>
+                        </div>
+                      ) : !watchDate ? (
                         <div style={{
                           fontSize: '0.88rem',
                           color: 'var(--text-muted)',

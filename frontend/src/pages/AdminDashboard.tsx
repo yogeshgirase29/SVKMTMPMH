@@ -92,6 +92,15 @@ interface DoctorType {
   department: string;
   image: string;
   available: boolean;
+  leaveSchedule?: {
+    _id: string;
+    leaveType: string;
+    startDate: string;
+    endDate: string;
+    reason: string;
+    status: 'Active' | 'Cancelled';
+    createdAt: string;
+  }[];
 }
 
 interface DepartmentType {
@@ -192,6 +201,12 @@ const AdminDashboard: React.FC = () => {
   const [scheduleDate, setScheduleDate] = useState(getISTDateString());
   const [scheduleSlotsList, setScheduleSlotsList] = useState<any[]>([]);
   const [scheduleSlotsLoading, setScheduleSlotsLoading] = useState(false);
+  const [scheduleOnLeave, setScheduleOnLeave] = useState(false);
+  const [scheduleLeaveDetails, setScheduleLeaveDetails] = useState<any>(null);
+  const [calendarMap, setCalendarMap] = useState<any>({});
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(getISTDateString().substring(0, 7)); // YYYY-MM
+  const [togglingDoctorId, setTogglingDoctorId] = useState<string | null>(null);
 
   // Modal / Form States
   const [isDoctorModalOpen, setIsDoctorModalOpen] = useState(false);
@@ -199,6 +214,7 @@ const AdminDashboard: React.FC = () => {
   const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
   const [isTestimonialModalOpen, setIsTestimonialModalOpen] = useState(false);
   const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
+  const [editingGalleryId, setEditingGalleryId] = useState<string | null>(null);
   
   // Doctor Form State
   const [editingDoctorId, setEditingDoctorId] = useState<string | null>(null);
@@ -355,6 +371,8 @@ const AdminDashboard: React.FC = () => {
     const loadScheduleSlots = async () => {
       if (!scheduleDate || !scheduleDoctor || doctors.length === 0) {
         setScheduleSlotsList([]);
+        setScheduleOnLeave(false);
+        setScheduleLeaveDetails(null);
         return;
       }
       setScheduleSlotsLoading(true);
@@ -362,8 +380,16 @@ const AdminDashboard: React.FC = () => {
         const doc = doctors.find(d => d.doctorName.en === scheduleDoctor);
         if (doc) {
           const res = await appointmentsApi.getAvailableSlots(doc._id, scheduleDate);
-          if (res.success && res.slotsData) {
-            setScheduleSlotsList(res.slotsData);
+          if (res.success) {
+            if (res.onLeave) {
+              setScheduleOnLeave(true);
+              setScheduleLeaveDetails(res.leaveDetails);
+              setScheduleSlotsList(res.slotsData || []);
+            } else {
+              setScheduleOnLeave(false);
+              setScheduleLeaveDetails(null);
+              setScheduleSlotsList(res.slotsData || []);
+            }
           }
         }
       } catch (err) {
@@ -374,6 +400,31 @@ const AdminDashboard: React.FC = () => {
     };
     loadScheduleSlots();
   }, [scheduleDoctor, scheduleDate, doctors]);
+
+  // Load Calendar map status for monthly view
+  useEffect(() => {
+    const loadCalendarMap = async () => {
+      if (!scheduleDoctor || !calendarMonth || doctors.length === 0) {
+        setCalendarMap({});
+        return;
+      }
+      const doc = doctors.find(d => d.doctorName.en === scheduleDoctor);
+      if (doc) {
+        setCalendarLoading(true);
+        try {
+          const res = await doctorsApi.getCalendarStatus(doc._id, calendarMonth);
+          if (res.success) {
+            setCalendarMap(res.calendar || {});
+          }
+        } catch (err) {
+          console.error('Failed to load calendar status map:', err);
+        } finally {
+          setCalendarLoading(false);
+        }
+      }
+    };
+    loadCalendarMap();
+  }, [scheduleDoctor, calendarMonth, doctors]);
 
   // Filtered doctors list for the schedule monitor
   const filteredScheduleDoctors = doctors.filter(d => 
@@ -572,6 +623,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleToggleDoctorAvailability = async (id: string) => {
+    setTogglingDoctorId(id);
     try {
       const res = await doctorsApi.toggleStatus(id);
       if (res.success) {
@@ -580,6 +632,8 @@ const AdminDashboard: React.FC = () => {
       }
     } catch (err: any) {
       showNotification('error', err.response?.data?.message || 'Failed to update availability status');
+    } finally {
+      setTogglingDoctorId(null);
     }
   };
 
@@ -896,12 +950,24 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleOpenAddGallery = () => {
+    setEditingGalleryId(null);
     setGalleryForm({
       title: '',
       category: 'Hospital'
     });
     setGalleryImageFile(null);
     setGalleryImagePreview('');
+    setIsGalleryModalOpen(true);
+  };
+
+  const handleOpenEditGallery = (item: any) => {
+    setEditingGalleryId(item._id);
+    setGalleryForm({
+      title: item.title,
+      category: item.category
+    });
+    setGalleryImageFile(null);
+    setGalleryImagePreview(item.image || '');
     setIsGalleryModalOpen(true);
   };
 
@@ -912,7 +978,7 @@ const AdminDashboard: React.FC = () => {
       return;
     }
 
-    if (!galleryImageFile) {
+    if (!editingGalleryId && !galleryImageFile) {
       showNotification('error', 'Gallery image is required.');
       return;
     }
@@ -920,18 +986,30 @@ const AdminDashboard: React.FC = () => {
     const formData = new FormData();
     formData.append('title', galleryForm.title);
     formData.append('category', galleryForm.category);
-    formData.append('image', galleryImageFile);
+    if (galleryImageFile) {
+      formData.append('image', galleryImageFile);
+    }
 
     setLoading(true);
     try {
-      const res = await galleryApi.create(formData);
-      if (res.success) {
-        setGallery(prev => [res.gallery, ...prev]);
-        showNotification('success', 'Image added to gallery successfully');
-        setIsGalleryModalOpen(false);
+      let res: any;
+      if (editingGalleryId) {
+        res = await galleryApi.update(editingGalleryId, formData);
+        if (res.success) {
+          setGallery(prev => prev.map(g => g._id === editingGalleryId ? res.gallery : g));
+          showNotification('success', 'Gallery item updated successfully');
+          setIsGalleryModalOpen(false);
+        }
+      } else {
+        res = await galleryApi.create(formData);
+        if (res.success) {
+          setGallery(prev => [res.gallery, ...prev]);
+          showNotification('success', 'Image added to gallery successfully');
+          setIsGalleryModalOpen(false);
+        }
       }
     } catch (err: any) {
-      showNotification('error', err.response?.data?.message || 'Failed to add image');
+      showNotification('error', err.response?.data?.message || 'Failed to save image');
     } finally {
       setLoading(false);
     }
@@ -1016,6 +1094,60 @@ const AdminDashboard: React.FC = () => {
 
   const slotwiseApps = getSlotwiseAppointments();
 
+  // Helper to compute Doctor Leave Analytics
+  const getLeaveAnalytics = () => {
+    const todayStr = getISTDateString();
+    const todayMidnight = new Date(todayStr);
+    const sevenDaysLater = new Date(todayMidnight.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const onLeaveToday: string[] = [];
+    const upcomingLeaves: { docName: string; leaveType: string; start: string; end: string }[] = [];
+    const returningThisWeek: { docName: string; end: string }[] = [];
+
+    doctors.forEach(doc => {
+      if (doc.leaveSchedule && doc.leaveSchedule.length > 0) {
+        doc.leaveSchedule.forEach((leave: any) => {
+          if (leave.status === 'Active') {
+            const startStr = getISTDateString(new Date(leave.startDate));
+            const endStr = getISTDateString(new Date(leave.endDate));
+            const endMidnight = new Date(endStr);
+
+            // On leave today
+            if (todayStr >= startStr && todayStr <= endStr) {
+              onLeaveToday.push(doc.doctorName.en);
+            }
+
+            // Upcoming leaves
+            if (startStr > todayStr) {
+              upcomingLeaves.push({
+                docName: doc.doctorName.en,
+                leaveType: leave.leaveType,
+                start: startStr,
+                end: endStr
+              });
+            }
+
+            // Returning this week (leave ends between today and 7 days later)
+            if (endMidnight >= todayMidnight && endMidnight <= sevenDaysLater) {
+              returningThisWeek.push({
+                docName: doc.doctorName.en,
+                end: endStr
+              });
+            }
+          }
+        });
+      }
+    });
+
+    return {
+      onLeaveToday,
+      upcomingLeaves,
+      returningThisWeek
+    };
+  };
+
+  const leaveAnalytics = getLeaveAnalytics();
+
   if (authLoading || (!isAuthenticated && authLoading)) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
@@ -1058,10 +1190,11 @@ const AdminDashboard: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Sidebar Navigation */}
       <aside 
         style={{
           width: isSidebarOpen ? '240px' : '0px',
+          minWidth: isSidebarOpen ? '240px' : '0px',
+          flexShrink: 0,
           background: 'var(--primary)',
           color: 'white',
           display: 'flex',
@@ -1069,7 +1202,9 @@ const AdminDashboard: React.FC = () => {
           transition: 'all var(--transition-normal)',
           overflow: 'hidden',
           zIndex: 850,
-          position: 'relative',
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
           borderRight: '1px solid rgba(255,255,255,0.06)'
         }}
         className="admin-sidebar"
@@ -1227,10 +1362,10 @@ const AdminDashboard: React.FC = () => {
                   {/* Stat Cards Grid */}
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
                     gap: '20px'
                   }}>
-                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div className="glass-panel stat-card-hover" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total Doctors</span>
                         <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--primary)', fontWeight: 800 }}>{totalDocs}</h3>
@@ -1240,7 +1375,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div className="glass-panel stat-card-hover" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Departments</span>
                         <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--cyan-hover)', fontWeight: 800 }}>{totalDepts}</h3>
@@ -1250,7 +1385,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div className="glass-panel stat-card-hover" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total Appointments</span>
                         <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--med-blue)', fontWeight: 800 }}>{totalApps}</h3>
@@ -1260,7 +1395,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div className="glass-panel stat-card-hover" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Pending Appts</span>
                         <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'orange', fontWeight: 800 }}>{pendingApps}</h3>
@@ -1270,7 +1405,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div className="glass-panel stat-card-hover" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total Enquiries</span>
                         <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--med-blue)', fontWeight: 800 }}>{totalContacts}</h3>
@@ -1280,7 +1415,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div className="glass-panel stat-card-hover" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div>
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>News Announcements</span>
                         <h3 style={{ fontSize: '1.8rem', marginTop: '4px', color: 'var(--primary)', fontWeight: 800 }}>{totalNews}</h3>
@@ -1288,6 +1423,63 @@ const AdminDashboard: React.FC = () => {
                       <div style={{ background: 'rgba(2, 132, 199, 0.05)', color: 'var(--med-blue)', padding: '10px', borderRadius: '10px' }}>
                         <Newspaper size={20} />
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Doctor Leave Status Analytics Panel */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', borderRadius: '12px' }}>
+                      <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Users size={16} color="#d97706" />
+                        <span>Doctors On Leave Today ({leaveAnalytics.onLeaveToday.length})</span>
+                      </h4>
+                      {leaveAnalytics.onLeaveToday.length === 0 ? (
+                        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>All doctors are available today.</div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {leaveAnalytics.onLeaveToday.map((name, i) => (
+                            <div key={i} style={{ fontSize: '0.82rem', fontWeight: 600, padding: '6px 10px', background: '#fff7ed', border: '1px solid #ffedd5', borderRadius: '6px', color: '#c2410c' }}>
+                              {name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', borderRadius: '12px' }}>
+                      <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Calendar size={16} color="var(--med-blue)" />
+                        <span>Upcoming Doctor Leaves ({leaveAnalytics.upcomingLeaves.length})</span>
+                      </h4>
+                      {leaveAnalytics.upcomingLeaves.length === 0 ? (
+                        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>No upcoming leaves scheduled.</div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '120px', overflowY: 'auto' }}>
+                          {leaveAnalytics.upcomingLeaves.map((item, i) => (
+                            <div key={i} style={{ fontSize: '0.8rem', padding: '6px 10px', background: 'var(--bg-primary)', border: '1px solid var(--border-muted)', borderRadius: '6px' }}>
+                              <strong>{item.docName}</strong>: {item.leaveType} ({formatISTDate(item.start)} - {formatISTDate(item.end)})
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="glass-panel" style={{ padding: '20px', background: 'white', border: '1px solid var(--border-muted)', borderRadius: '12px' }}>
+                      <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Clock size={16} color="#15803d" />
+                        <span>Doctors Returning This Week ({leaveAnalytics.returningThisWeek.length})</span>
+                      </h4>
+                      {leaveAnalytics.returningThisWeek.length === 0 ? (
+                        <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>No doctors returning from leaves this week.</div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {leaveAnalytics.returningThisWeek.map((item, i) => (
+                            <div key={i} style={{ fontSize: '0.8rem', padding: '6px 10px', background: '#f0fdf4', border: '1px solid #dcfce7', borderRadius: '6px', color: '#166534' }}>
+                              <strong>{item.docName}</strong> (Returning {formatISTDate(item.end)})
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1633,75 +1825,241 @@ const AdminDashboard: React.FC = () => {
                         ))}
                       </select>
                     </div>
-
-                    {/* Schedule Date Filter */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Schedule Date</span>
-                      <input 
-                        type="date" 
-                        value={scheduleDate} 
-                        onChange={(e) => setScheduleDate(e.target.value)}
-                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem', minHeight: '36px' }}
-                      />
-                    </div>
                   </div>
 
-                  {scheduleSlotsLoading ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px 0' }}>
-                      <Loader2 size={24} className="spin-animation" style={{ color: 'var(--med-blue)', marginRight: '8px' }} />
-                      <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>Loading schedule...</span>
-                    </div>
-                  ) : !scheduleDoctor ? (
-                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-muted)', borderRadius: '8px', fontSize: '0.88rem' }}>
-                      No specialist doctor selected or available in this department.
-                    </div>
-                  ) : scheduleSlotsList.length === 0 ? (
-                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-muted)', borderRadius: '8px', fontSize: '0.88rem' }}>
-                      Select a specialist doctor and booking date to visualize slot occupancy.
-                    </div>
-                  ) : (
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-                      gap: '12px',
-                      marginTop: '10px'
-                    }}>
-                      {scheduleSlotsList.map(item => {
-                        let statusBg = 'white';
-                        let statusColor = '#0f172a';
-                        let statusBorder = '1px solid var(--border-muted)';
-                        let statusLabel = 'Available';
+                  {/* Grid Container for Monthly Calendar and Daily Slot details */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', marginTop: '20px' }} className="schedule-layout-grid">
+                    
+                    {/* Left Column: Monthly Calendar View */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--primary)', margin: 0 }}>Monthly Occupancy Calendar</h4>
+                        <input 
+                          type="month" 
+                          value={calendarMonth} 
+                          onChange={(e) => setCalendarMonth(e.target.value)}
+                          style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border-muted)', fontSize: '0.88rem' }}
+                        />
+                      </div>
 
-                        if (item.status === 'Booked') {
-                          statusColor = '#ef4444';
-                          statusBg = '#fef2f2';
-                          statusBorder = '1px solid #fca5a5';
-                          statusLabel = 'Booked';
-                        } else if (item.status === 'Past') {
-                          statusColor = '#475569';
-                          statusBg = '#f1f5f9';
-                          statusBorder = '1px solid #cbd5e1';
-                          statusLabel = 'Unavailable';
-                        }
+                      {calendarLoading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '220px', border: '1px solid var(--border-muted)', borderRadius: '12px', background: 'var(--bg-primary)' }}>
+                          <Loader2 size={24} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
+                        </div>
+                      ) : !scheduleDoctor ? (
+                        <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-muted)', borderRadius: '12px', fontSize: '0.88rem' }}>
+                          Select a specialist doctor to visualize monthly calendar.
+                        </div>
+                      ) : (
+                        <div style={{
+                          border: '1px solid var(--border-muted)',
+                          borderRadius: '12px',
+                          padding: '16px',
+                          background: 'var(--bg-primary)'
+                        }}>
+                          {(() => {
+                            const [year, monthNum] = calendarMonth.split('-').map(Number);
+                            const firstDayIndex = new Date(year, monthNum - 1, 1).getDay();
+                            const totalDays = new Date(year, monthNum, 0).getDate();
+                            
+                            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                            const cells = [];
+                            for (let i = 0; i < firstDayIndex; i++) cells.push(null);
+                            for (let d = 1; d <= totalDays; d++) cells.push(d);
 
-                        return (
-                          <div key={item.slot} style={{
-                            padding: '10px 8px',
-                            borderRadius: '8px',
-                            background: statusBg,
-                            border: statusBorder,
-                            textAlign: 'center',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '4px'
-                          }}>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>{item.slot}</div>
-                            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: statusColor, textTransform: 'uppercase' }}>{statusLabel}</div>
+                            return (
+                              <div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center', fontWeight: 700, fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                  {dayNames.map(d => <div key={d}>{d}</div>)}
+                                </div>
+                                
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px' }}>
+                                  {cells.map((day, idx) => {
+                                    if (day === null) return <div key={`empty-${idx}`} />;
+                                    
+                                    const dateStr = `${year}-${String(monthNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                                    const dayStatus = calendarMap[dateStr] || { status: 'Available', label: 'Available' };
+                                    
+                                    let cellBg = '#f0fdf4';
+                                    let cellBorder = '1px solid #bbf7d0';
+                                    let cellColor = '#166534';
+
+                                    if (dayStatus.status === 'Past') {
+                                      cellBg = '#f1f5f9';
+                                      cellBorder = '1px solid #cbd5e1';
+                                      cellColor = '#64748b';
+                                    } else if (dayStatus.status === 'OnLeave') {
+                                      cellBg = '#fff7ed';
+                                      cellBorder = '1px solid #fed7aa';
+                                      cellColor = '#c2410c';
+                                    } else if (dayStatus.status === 'FullyBooked') {
+                                      cellBg = '#fef2f2';
+                                      cellBorder = '1px solid #fecaca';
+                                      cellColor = '#991b1b';
+                                    } else if (dayStatus.status === 'Booked') {
+                                      cellBg = '#eff6ff';
+                                      cellBorder = '1px solid #bfdbfe';
+                                      cellColor = '#1d4ed8';
+                                    }
+
+                                    const isSelected = scheduleDate === dateStr;
+
+                                    return (
+                                      <button
+                                        key={`day-${day}`}
+                                        type="button"
+                                        disabled={dayStatus.status === 'Past'}
+                                        onClick={() => setScheduleDate(dateStr)}
+                                        style={{
+                                          aspectRatio: '1',
+                                          borderRadius: '8px',
+                                          border: isSelected ? '2px solid var(--med-blue)' : cellBorder,
+                                          background: cellBg,
+                                          color: cellColor,
+                                          fontWeight: isSelected ? 800 : 600,
+                                          fontSize: '0.85rem',
+                                          cursor: dayStatus.status === 'Past' ? 'not-allowed' : 'pointer',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          position: 'relative',
+                                          transition: 'all 0.15s ease',
+                                          opacity: dayStatus.status === 'Past' ? 0.65 : 1
+                                        }}
+                                        title={`${dayStatus.label}${dayStatus.reason ? ' - ' + dayStatus.reason : ''}`}
+                                      >
+                                        <span>{day}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '16px', fontSize: '0.72rem', fontWeight: 700, justifyContent: 'center', borderTop: '1px solid var(--border-muted)', paddingTop: '10px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#bbf7d0', border: '1px solid #166534' }} />
+                                    <span>Available</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#bfdbfe', border: '1px solid #1d4ed8' }} />
+                                    <span>Booked</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fecaca', border: '1px solid #991b1b' }} />
+                                    <span>Fully Booked</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fed7aa', border: '1px solid #c2410c' }} />
+                                    <span>On Leave</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#cbd5e1', border: '1px solid #64748b' }} />
+                                    <span>Past</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right Column: Daily Slots Schedule Monitor list details */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--primary)', margin: 0 }}>
+                        Slot Details for {formatISTDate(scheduleDate)}
+                      </h4>
+
+                      {scheduleSlotsLoading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+                          <Loader2 size={24} className="spin-animation" style={{ color: 'var(--med-blue)', marginRight: '8px' }} />
+                          <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>Loading slots...</span>
+                        </div>
+                      ) : scheduleOnLeave && scheduleLeaveDetails ? (
+                        <div style={{
+                          background: '#fff7ed',
+                          border: '1px solid #ffedd5',
+                          borderRadius: '12px',
+                          padding: '24px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '12px',
+                          textAlign: 'center',
+                          color: '#c2410c'
+                        }}>
+                          <AlertTriangle size={32} />
+                          <div>
+                            <strong style={{ display: 'block', fontSize: '1rem', marginBottom: '4px' }}>
+                              Doctor On Leave
+                            </strong>
+                            <span style={{ fontSize: '0.85rem', color: '#9a3412' }}>
+                              Dr. {scheduleDoctor} is on leave ({scheduleLeaveDetails.leaveType}) from {formatISTDate(scheduleLeaveDetails.startDate)} to {formatISTDate(scheduleLeaveDetails.endDate)}.
+                            </span>
+                            {scheduleLeaveDetails.reason && (
+                              <p style={{ fontStyle: 'italic', fontSize: '0.82rem', marginTop: '8px', background: '#ffebd5', padding: '6px 10px', borderRadius: '6px' }}>
+                                Reason: {scheduleLeaveDetails.reason}
+                              </p>
+                            )}
                           </div>
-                        );
-                      })}
+                        </div>
+                      ) : !scheduleDoctor ? (
+                        <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-muted)', borderRadius: '12px', fontSize: '0.88rem' }}>
+                          No specialist doctor selected.
+                        </div>
+                      ) : scheduleSlotsList.length === 0 ? (
+                        <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-muted)', borderRadius: '12px', fontSize: '0.88rem' }}>
+                          No slots available for this date.
+                        </div>
+                      ) : (
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+                          gap: '10px'
+                        }}>
+                          {scheduleSlotsList.map(item => {
+                            let statusBg = 'white';
+                            let statusColor = '#0f172a';
+                            let statusBorder = '1px solid var(--border-muted)';
+                            let statusLabel = 'Available';
+
+                            if (item.status === 'Booked') {
+                              statusColor = '#ef4444';
+                              statusBg = '#fef2f2';
+                              statusBorder = '1px solid #fca5a5';
+                              statusLabel = 'Booked';
+                            } else if (item.status === 'Past') {
+                              statusColor = '#475569';
+                              statusBg = '#f1f5f9';
+                              statusBorder = '1px solid #cbd5e1';
+                              statusLabel = 'Unavailable';
+                            } else if (item.status === 'Unavailable') {
+                              statusColor = '#d97706';
+                              statusBg = '#fff7ed';
+                              statusBorder = '1px solid #fed7aa';
+                              statusLabel = 'On Leave';
+                            }
+
+                            return (
+                              <div key={item.slot} style={{
+                                padding: '10px 8px',
+                                borderRadius: '8px',
+                                background: statusBg,
+                                border: statusBorder,
+                                textAlign: 'center',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '4px'
+                              }}>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>{item.slot}</div>
+                                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: statusColor, textTransform: 'uppercase' }}>{statusLabel}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  )}
+
+                  </div>
                 </div>
               )}
             </div>
@@ -1738,26 +2096,32 @@ const AdminDashboard: React.FC = () => {
                         flexDirection: 'column',
                         position: 'relative'
                       }}>
-                        {/* Top Action Overlay */}
-                        <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '6px' }}>
-                          <button onClick={() => handleOpenEditDoctor(doc)} className="action-icon-btn edit" title="Edit Doctor">
-                            <Edit2 size={14} />
-                          </button>
-                          <button onClick={() => handleDeleteDoctor(doc._id)} className="action-icon-btn delete" title="Delete Doctor">
-                            <Trash2 size={14} />
-                          </button>
+                        {/* Header Action Row */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '10px' }}>
+                          <span className={`status-pill ${doc.available ? 'confirmed' : 'cancelled'}`} style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '4px' }}>
+                            {doc.available ? 'Active' : 'Inactive'}
+                          </span>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button onClick={() => handleOpenEditDoctor(doc)} className="action-icon-btn edit" title="Edit Doctor" style={{ width: '28px', height: '28px', borderRadius: '6px' }}>
+                              <Edit2 size={13} />
+                            </button>
+                            <button onClick={() => handleDeleteDoctor(doc._id)} className="action-icon-btn delete" title="Delete Doctor" style={{ width: '28px', height: '28px', borderRadius: '6px' }}>
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         </div>
 
+                        {/* Profile Section */}
                         <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '16px' }}>
                           <img 
                             src={doc.image} 
                             alt={doc.doctorName.en} 
                             style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '12px', background: 'var(--bg-primary)' }}
                           />
-                          <div>
-                            <h4 style={{ fontSize: '1.05rem', color: 'var(--primary)' }}>{doc.doctorName.en}</h4>
-                            <div style={{ fontSize: '0.82rem', color: 'var(--med-blue)', fontWeight: 600 }}>{doc.specialization.en}</div>
-                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Dept: {doc.department}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <h4 style={{ fontSize: '1.1rem', color: 'var(--primary)', margin: 0, fontWeight: 800 }}>{doc.doctorName.en}</h4>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--med-blue)', fontWeight: 600, marginTop: '2px' }}>{doc.specialization.en}</div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>Dept: {doc.department}</div>
                           </div>
                         </div>
 
@@ -1766,14 +2130,72 @@ const AdminDashboard: React.FC = () => {
                           <div><strong>Experience:</strong> {doc.experience.en}</div>
                         </div>
 
+                        {/* Leave Status Summary & Manage Leave Button */}
+                        {(() => {
+                          const todayStr = getISTDateString();
+                          let leaveStatusText = 'Current Status: Available';
+                          let leavePeriodText = '';
+                          let leaveReasonText = '';
+                          let activeLeave = null;
+
+                          if (doc.leaveSchedule && doc.leaveSchedule.length > 0) {
+                            activeLeave = doc.leaveSchedule.find((l: any) => {
+                              if (l.status !== 'Active') return false;
+                              const startStr = getISTDateString(new Date(l.startDate));
+                              const endStr = getISTDateString(new Date(l.endDate));
+                              return todayStr >= startStr && todayStr <= endStr;
+                            });
+                            
+                            if (activeLeave) {
+                              const startFormatted = formatISTDate(new Date(activeLeave.startDate));
+                              const endFormatted = formatISTDate(new Date(activeLeave.endDate));
+                              leaveStatusText = `Unavailable Until ${endFormatted}`;
+                              leavePeriodText = `Leave Period: ${startFormatted} - ${endFormatted}`;
+                              leaveReasonText = `Reason: ${activeLeave.reason || 'Not specified'}`;
+                            }
+                          }
+
+                          return (
+                            <div style={{ borderTop: '1px solid var(--border-muted)', marginTop: '12px', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: activeLeave ? '#d97706' : '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: activeLeave ? '#d97706' : '#166534' }} />
+                                <span>{leaveStatusText}</span>
+                              </div>
+                              {activeLeave && (
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', background: '#fff7ed', padding: '6px 10px', borderRadius: '6px', border: '1px solid #ffedd5' }}>
+                                  <div>{leavePeriodText}</div>
+                                  <div style={{ fontStyle: 'italic', marginTop: '2px' }}>{leaveReasonText}</div>
+                                </div>
+                              )}
+                              <button 
+                                onClick={() => navigate(`/admin/doctors/${doc._id}/leave`)}
+                                className="btn btn-secondary" 
+                                style={{ width: '100%', fontSize: '0.8rem', padding: '6px', height: '34px', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0', color: 'var(--text-primary)', cursor: 'pointer', borderRadius: '6px' }}
+                              >
+                                <Calendar size={14} />
+                                <span>Manage Leave</span>
+                              </button>
+                            </div>
+                          );
+                        })()}
+
                         {/* Toggle Switch Availability */}
                         <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-primary)', padding: '10px 14px', borderRadius: '8px' }}>
                           <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>Available for Bookings:</span>
                           <button 
+                            disabled={togglingDoctorId === doc._id}
                             onClick={() => handleToggleDoctorAvailability(doc._id)}
                             className={`toggle-switch-btn ${doc.available ? 'on' : 'off'}`}
+                            style={{ 
+                              opacity: togglingDoctorId === doc._id ? 0.8 : 1,
+                              cursor: togglingDoctorId === doc._id ? 'not-allowed' : 'pointer'
+                            }}
                           >
-                            <div className="toggle-knob" />
+                            <div className="toggle-knob" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {togglingDoctorId === doc._id && (
+                                <Loader2 size={10} className="spin-animation" style={{ color: 'var(--med-blue)' }} />
+                              )}
+                            </div>
                           </button>
                         </div>
                       </div>
@@ -1945,13 +2367,23 @@ const AdminDashboard: React.FC = () => {
                         flexDirection: 'column',
                         position: 'relative'
                       }}>
-                        <button 
-                          onClick={() => handleDeleteGallery(item._id)} 
-                          style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(239, 68, 68, 0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                          title="Delete Image"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {/* Action Overlay */}
+                        <div style={{ position: 'absolute', top: '20px', right: '20px', display: 'flex', gap: '6px' }}>
+                          <button 
+                            onClick={() => handleOpenEditGallery(item)} 
+                            style={{ background: 'rgba(2, 132, 199, 0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title="Edit Details"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteGallery(item._id)} 
+                            style={{ background: 'rgba(239, 68, 68, 0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title="Delete Image"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                         <div style={{ height: '140px', overflow: 'hidden', borderRadius: '8px', marginBottom: '8px', background: '#f1f5f9' }}>
                           <img src={item.image} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
@@ -2645,7 +3077,7 @@ const AdminDashboard: React.FC = () => {
         <div className="modal-overlay">
           <div className="modal-content glass-panel-blue" style={{ maxWidth: '500px', background: 'white' }}>
             <div style={{ background: 'var(--gradient-primary)', color: 'white', padding: '18px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ color: 'white', fontSize: '1.2rem' }}>Upload Image to Gallery</h3>
+              <h3 style={{ color: 'white', fontSize: '1.2rem' }}>{editingGalleryId ? 'Edit Gallery Image Details' : 'Upload Image to Gallery'}</h3>
               <button onClick={() => setIsGalleryModalOpen(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
                 <X size={18} />
               </button>
@@ -2680,7 +3112,7 @@ const AdminDashboard: React.FC = () => {
 
               {/* Image Select */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Select Image File</label>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Select Image File {editingGalleryId && '(Optional)'}</label>
                 <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
                   {galleryImagePreview ? (
                     <img 
@@ -2696,7 +3128,7 @@ const AdminDashboard: React.FC = () => {
                   <input 
                     type="file" 
                     accept="image/*"
-                    required
+                    required={!editingGalleryId}
                     onChange={handleGalleryImageChange}
                     style={{ fontSize: '0.82rem' }}
                   />
@@ -2705,7 +3137,7 @@ const AdminDashboard: React.FC = () => {
 
               <button type="submit" disabled={loading} className="btn btn-primary" style={{ width: '100%', height: '44px', marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 {loading && <Loader2 size={16} className="spin-animation" />}
-                <span>Add to Gallery</span>
+                <span>{editingGalleryId ? 'Save Changes' : 'Add to Gallery'}</span>
               </button>
             </form>
           </div>
