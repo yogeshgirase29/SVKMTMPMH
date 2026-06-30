@@ -171,8 +171,8 @@ const seedData = async () => {
           mr: 'या रविवारी मोफत बालरोग आरोग्य शिबिर'
         },
         description: {
-          en: 'A free clinical health screening and pediatric consultancy camp will be held at our Shirpur campus from 9:00 AM to 4:00 PM.',
-          mr: 'आमच्या शिरपूर कॅम्पसमध्ये सकाळी ९:०० ते दुपारी ४:०० या वेळेत मोफत क्लिनिकल आरोग्य तपासणी आणि बालरोग सल्ला शिबिर आयोजित केले जाईल.'
+          en: 'A free clinical health screening and pediatric consultancy camp will be held at our Dahiwad campus from 9:00 AM to 4:00 PM.',
+          mr: 'आमच्या दहीवड कॅम्पसमध्ये सकाळी ९:०० ते दुपारी ४:०० या वेळेत मोफत क्लिनिकल आरोग्य तपासणी आणि बालरोग सल्ला शिबिर आयोजित केले जाईल.'
         },
         image: 'https://images.unsplash.com/photo-1502740479091-635887520276?auto=format&fit=crop&q=80&w=600',
         date: new Date('2026-06-15')

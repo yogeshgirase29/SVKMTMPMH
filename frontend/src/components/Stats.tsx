@@ -104,6 +104,7 @@ export const Stats: React.FC<StatsProps> = ({ language }) => {
 
   return (
     <section 
+      className="stats-section"
       style={{
         padding: '60px 0',
         background: 'var(--white)',
@@ -176,6 +177,9 @@ export const Stats: React.FC<StatsProps> = ({ language }) => {
 
       <style>{`
         @media (max-width: 991px) {
+          .stats-section {
+            margin-top: 0px !important;
+          }
           .stat-card {
             border-right: none !important;
             border-bottom: 1px solid var(--border-muted);

@@ -150,8 +150,8 @@ export const Contact: React.FC<ContactProps> = ({ language }) => {
               position: 'relative'
             }}>
               <iframe 
-                title="SVKM Tapanbhai Mukeshbhai Patel Hospital Location"
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3715.4206584285705!2d74.88607147589255!3d21.363406380369804!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bd8a9582d921b71%3A0xe54d6fa7c6d66e7!2sSVKM's%20Tapanbhai%20Mukeshbhai%20Patel%20Memorial%20Hospital%20%26%20Research%20Centre!5e0!3m2!1sen!2sin!4v1717618239010!5m2!1sen!2sin"
+                title="AarogyaSetu Multispeciality Hospital Location"
+                src="https://www.google.com/maps?q=21.341440,74.942983&z=15&output=embed"
                 width="100%" 
                 height="100%" 
                 style={{ border: 0, minHeight: '260px', display: 'block' }} 
@@ -182,7 +182,7 @@ export const Contact: React.FC<ContactProps> = ({ language }) => {
                   <input 
                     type="text" 
                     required 
-                    placeholder="Jane Doe"
+                    placeholder="Yogesh Udesing Girase"
                     value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
                     style={{
@@ -223,7 +223,7 @@ export const Contact: React.FC<ContactProps> = ({ language }) => {
                   </label>
                   <input 
                     type="email" 
-                    placeholder="jane@example.com"
+                    placeholder="yogesh.girase@example.com"
                     value={formData.email}
                     onChange={e => setFormData({ ...formData, email: e.target.value })}
                     style={{

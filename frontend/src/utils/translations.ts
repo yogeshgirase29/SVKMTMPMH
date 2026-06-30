@@ -3,8 +3,8 @@ export type Language = 'en' | 'mr';
 export const translations = {
   en: {
     // Global/Navbar
-    hospitalName: "SVKM | TMPM HOSPITAL",
-    hospitalFullName: "SVKM's Tapanbhai Mukeshbhai Patel Memorial Hospital",
+    hospitalName: "YUG | AAROGYASETU",
+    hospitalFullName: "YUG's (Yogesh Udesing Girase) AarogyaSetu Multispeciality Hospital",
     hospitalSubtitle: "& Research Centre",
     bookAppointment: "Book Appointment",
     viewReports: "View Reports",
@@ -19,7 +19,7 @@ export const translations = {
     navContact: "Contact",
 
     // Hero Section
-    certifiedTag: "SVKM's Shri Vile Parle Kelavani Mandal Trust",
+    certifiedTag: "YUG's (Yogesh Udesing Girase) Trust",
     heroTitleFirst: "Advanced",
     heroTitleSecond: "Clinical Care",
     heroTitleThird: "Scientific",
@@ -61,13 +61,13 @@ export const translations = {
     scheduleService: "Schedule Service",
 
     // Why Choose Us
-    whyTag: "WHY TMPM HOSPITAL",
+    whyTag: "WHY AAROGYASETU HOSPITAL",
     whyTitle: "Setting Standards in Diagnostic & Clinical Excellence",
     whyDesc: "We merge cutting-edge laboratory systems with clinical dedication to offer a patient experience that prioritizes safety and accuracy.",
-    whyTrustTitle: "SVKM Legacy of Trust",
-    whyTrustDesc: "Backed by the Shri Vile Parle Kelavani Mandal, a premier trust with a history of clinical and academic excellence.",
+    whyTrustTitle: "YUG's Legacy of Trust",
+    whyTrustDesc: "Backed by YUG's (Yogesh Udesing Girase) Trust, a premier trust with a history of clinical excellence and community care.",
     whyAccessTitle: "Regional Accessibility",
-    whyAccessDesc: "Located in Shirpur, serving Nandurbar, Dhule, Jalgaon, and neighboring regions, eliminating metro travels.",
+    whyAccessDesc: "Located in Dahiwad, Tal. Shirpur, serving Nandurbar, Dhule, Jalgaon, and neighboring regions, eliminating metro travels.",
     whyInfraTitle: "Advanced Infrastructure",
     whyInfraDesc: "Built with international standards, featuring advanced Siemens & GE diagnostic imaging and multi-slice CT/MRI.",
     whyTeachingTitle: "Integrated Teaching Hospital",
@@ -129,11 +129,11 @@ export const translations = {
     contactTitle: "Get in Touch with Our Team",
     contactDesc: "Have queries regarding medical treatments, outpatient schedules, emergency services, or Ayushman Bharat cashless admissions? Reach out below.",
     contactLoc: "Our Location",
-    contactLocDet: "Kharde BK, Shirpur, District Dhule, Maharashtra - 425405",
+    contactLocDet: "Dahiwad, Tal. Shirpur, Dist. Dhule, Maharashtra - 425405",
     contactPhone: "Phone Number",
     contactPhoneDet: "+91 99693 79023 / +91 2563 295550",
     contactEmail: "Email Address",
-    contactEmailDet: "info.tmpmhospital@svkm.ac.in / admissions@svkm.ac.in",
+    contactEmailDet: "info@aarogyasetuhospital.com / admissions@aarogyasetuhospital.com",
     contactHours: "Working Hours",
     contactHoursDet: "Emergency & Trauma: 24/7 | OPD: Mon - Sat 09:00 AM - 05:00 PM",
     formTitle: "Send a Direct Message",
@@ -145,16 +145,16 @@ export const translations = {
     formMessagePlaceholder: "How can our clinical team help you?",
     formSubmit: "Send Direct Inquiry",
     formSuccessTitle: "Inquiry Sent Successfully",
-    formSuccessDesc: "Thank you for contacting SVKM's TMPM Hospital. A hospital helpdesk representative will respond to your email shortly.",
+    formSuccessDesc: "Thank you for contacting AarogyaSetu Hospital. A hospital helpdesk representative will respond shortly.",
     formSuccessBtn: "Send Another",
 
     // Footer
-    footerBio: "SVKM's Tapanbhai Mukeshbhai Patel Memorial Hospital & Research Centre is committed to delivering world-class clinical treatments, academic research, and cashless schemes access for patient wellness.",
+    footerBio: "AarogyaSetu Multispeciality Hospital & Research Centre (under YUG's Trust) is committed to delivering world-class clinical treatments, academic research, and cashless schemes access for patient wellness.",
     footerNewsletter: "Subscribe to Newsletter",
     footerNewsletterDesc: "Stay updated on health tips, routine diagnostic packages, and wellness programs.",
     footerNewsletterPlaceholder: "Enter your email",
     footerNewsletterSuccess: "Subscription confirmed! Thank you.",
-    footerRights: "SVKM's Tapanbhai Mukeshbhai Patel Memorial Hospital & Research Centre. All Rights Reserved.",
+    footerRights: "YUG's (Yogesh Udesing Girase) AarogyaSetu Multispeciality Hospital & Research Centre. All Rights Reserved.",
 
     // Modals
     modalAppTitle: "Book Medical Appointment",
@@ -206,8 +206,8 @@ export const translations = {
   },
   mr: {
     // Global/Navbar
-    hospitalName: "SVKM | TMPM रुग्णालय",
-    hospitalFullName: "एसव्हीकेएमचे तपणभाई मुकेशभाई पटेल मेमोरियल हॉस्पिटल",
+    hospitalName: "युग | आरोग्यसेतू",
+    hospitalFullName: "युगचे (योगेश उदेसिंग गिरासे) आरोग्यसेतू मल्टिस्पेशालिटी हॉस्पिटल",
     hospitalSubtitle: "& रिसर्च सेंटर",
     bookAppointment: "भेट निश्चित करा",
     viewReports: "अहवाल पहा",
@@ -222,7 +222,7 @@ export const translations = {
     navContact: "संपर्क",
 
     // Hero Section
-    certifiedTag: "एसव्हीकेएम श्री विलेपार्ले केळवणी मंडळ ट्रस्ट",
+    certifiedTag: "युग (योगेश उदेसिंग गिरासे) ट्रस्ट",
     heroTitleFirst: "प्रगत",
     heroTitleSecond: "वैद्यकीय उपचार",
     heroTitleThird: "वैज्ञानिक",
@@ -264,13 +264,13 @@ export const translations = {
     scheduleService: "सेवा आरक्षित करा",
 
     // Why Choose Us
-    whyTag: "तपणभाई पटेल रुग्णालय का?",
+    whyTag: "आरोग्यसेतू रुग्णालय का?",
     whyTitle: "वैद्यकीय आणि शैक्षणिक उत्कृष्टतेचे नवे निकष",
     whyDesc: "आम्ही रुग्णांच्या सुरक्षेला आणि अचूकतेला प्राधान्य देण्यासाठी अत्याधुनिक लॅबोरेटरी सिस्टीम आणि वैद्यकीय सेवा एकत्र आणतो.",
-    whyTrustTitle: "एसव्हीकेएमचा विश्वासाचा वारसा",
-    whyTrustDesc: "१९३४ पासून शैक्षणिक आणि वैद्यकीय उत्कृष्टतेचा इतिहास असलेल्या श्री विलेपार्ले केळवणी मंडळाचे पाठबळ.",
+    whyTrustTitle: "युगचा विश्वासाचा वारसा",
+    whyTrustDesc: "उत्कृष्ट वैद्यकीय सेवेचा इतिहास असलेल्या युग (योगेश उदेसिंग गिरासे) ट्रस्टचे पाठबळ.",
     whyAccessTitle: "प्रादेशिक सुलभता",
-    whyAccessDesc: "शिरपूर येथे स्थित असून धुळे, नंदुरबार, जळगाव आणि शेजारील भागातील रुग्णांना महानगरांमध्ये जाण्यापासून सुटका.",
+    whyAccessDesc: "दहीवड, ता. शिरपूर येथे स्थित असून धुळे, नंदुरबार, जळगाव आणि शेजारील भागातील रुग्णांना महानगरांमध्ये जाण्यापासून सुटका.",
     whyInfraTitle: "प्रगत पायाभूत सुविधा",
     whyInfraDesc: "आंतरराष्ट्रीय दर्जाचे बांधकाम, अत्याधुनिक सिमेन्स आणि जीई डायग्नोस्टिक इमेजिंग आणि सीटी/एमआरआय सुविधा.",
     whyTeachingTitle: "एकात्मिक शिक्षण रुग्णालय",
@@ -319,7 +319,7 @@ export const translations = {
     rev2Comment: "पोर्टलवर सुरक्षा कोड टाकून माझे रिपोर्ट्स त्वरित उघडले. त्यातील सोप्या चार्ट्समुळे मला कोणती पातळी योग्य आहे आणि काय बदल हवे आहेत हे सहज समजले.",
     rev3Name: "डॉ. क्लारा स्टर्लिंग",
     rev3Role: "बाह्य भागीदार फिजिशियन",
-    rev3Comment: "एक खाजगी प्रॅक्टिशनर म्हणून, मला अचूक निष्कर्षांची गरज असते. तपणभाई पटेल हॉस्पिटलचे रेडिओलॉजी रिझल्ट्स आणि उपकरणे अत्यंत विश्वसनीय आहेत.",
+    rev3Comment: "एक खाजगी प्रॅक्टिशनर म्हणून, मला अचूक निष्कर्षांची गरज असते. आरोग्यसेतू हॉस्पिटलचे रेडिओलॉजी रिझल्ट्स आणि उपकरणे अत्यंत विश्वसनीय आहेत.",
 
     // CTA Section
     ctaTag: "आजच आपल्या आरोग्याला प्राधान्य द्या",
@@ -332,11 +332,11 @@ export const translations = {
     contactTitle: "आमच्या टीमशी संवाद साधा",
     contactDesc: "उपचार, ओपीडी वेळापत्रक, आपत्कालीन सेवा किंवा आयुष्मान भारत कॅशलेस नोंदणी संदर्भात काही शंका असल्यास खालील फॉर्मद्वारे संपर्क साधा.",
     contactLoc: "आमचा पत्ता",
-    contactLocDet: "खर्डे बुद्रुक, शिरपूर, जिल्हा धुळे, महाराष्ट्र - ४२५४०५",
+    contactLocDet: "दहीवड, ता. शिरपूर, जिल्हा धुळे, महाराष्ट्र - ४२५४०५",
     contactPhone: "फोन नंबर",
     contactPhoneDet: "+९१ ९९६९३ ७९M२३ / +९१ २५६३ २९५५५०",
     contactEmail: "ईमेल पत्ता",
-    contactEmailDet: "info.tmpmhospital@svkm.ac.in / admissions@svkm.ac.in",
+    contactEmailDet: "info@aarogyasetuhospital.com / admissions@aarogyasetuhospital.com",
     contactHours: "कार्यालयाची वेळ",
     contactHoursDet: "आपत्कालीन व अतिदक्षता: २४ तास | ओपीडी: सोवे - शनिवार सकाळी ०९:०० ते संध्याकाळी ०५:००",
     formTitle: "थेट संदेश पाठवा",
@@ -348,16 +348,16 @@ export const translations = {
     formMessagePlaceholder: "आमची वैद्यकीय टीम आपल्याला कशी मदत करू शकते?",
     formSubmit: "चौकशी पाठवा",
     formSuccessTitle: "संदेश यशस्वीरित्या पाठवला",
-    formSuccessDesc: "तपणभाई पटेल हॉस्पिटलशी संपर्क साधल्याबद्दल धन्यवाद. आमचे प्रतिनिधी लवकरच आपल्याशी ईमेलद्वारे संपर्क साधतील.",
+    formSuccessDesc: "आरोग्यसेतू हॉस्पिटलशी संपर्क साधल्याबद्दल धन्यवाद. आमचे प्रतिनिधी लवकरच आपल्याशी ईमेलद्वारे संपर्क साधतील.",
     formSuccessBtn: "दुसरा संदेश पाठवा",
 
     // Footer
-    footerBio: "एसव्हीकेएमचे तपणभाई मुकेशभाई पटेल मेमोरियल हॉस्पिटल आणि रिसर्च सेंटर उत्तर महाराष्ट्रात जागतिक दर्जाचे उपचार, अत्याधुनिक संशोधन आणि कॅशलेस शासकीय योजनांचे लाभ देण्यासाठी वचनबद्ध आहे.",
+    footerBio: "युगचे (योगेश उदेसिंग गिरासे) आरोग्यसेतू मल्टिस्पेशालिटी हॉस्पिटल आणि रिसर्च सेंटर उत्तर महाराष्ट्रात जागतिक दर्जाचे उपचार, अत्याधुनिक संशोधन आणि कॅशलेस शासकीय योजनांचे लाभ देण्यासाठी वचनबद्ध आहे.",
     footerNewsletter: "माहितीपत्रकासाठी नोंदणी करा",
     footerNewsletterDesc: "आरोग्यविषयक टिप्स, नवीन चाचणी पॅकेजेस आणि योजनांची माहिती मिळवा.",
     footerNewsletterPlaceholder: "आपला ईमेल टाका",
     footerNewsletterSuccess: "नोंदणी यशस्वी झाली! धन्यवाद.",
-    footerRights: "एसव्हीकेएमचे तपणभाई मुकेशभाई पटेल मेमोरियल हॉस्पिटल आणि रिसर्च सेंटर. सर्व हक्क राखीव.",
+    footerRights: "युगचे (योगेश उदेसिंग गिरासे) आरोग्यसेतू मल्टिस्पेशालिटी हॉस्पिटल आणि रिसर्च सेंटर. सर्व हक्क राखीव.",
 
     // Modals
     modalAppTitle: "वैद्यकीय अपॉइंटमेंट आरक्षित करा",

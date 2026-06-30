@@ -63,7 +63,8 @@ export const Navbar: React.FC<NavbarProps> = ({ language, setLanguage, onOpenApp
       overflow: 'hidden',
       background: 'rgba(255,255,255,0.5)',
       boxShadow: 'var(--shadow-sm)',
-      padding: '2px'
+      padding: '2px',
+      flexShrink: 0
     }}>
       <button 
         onClick={() => setLanguage('en')} 
@@ -76,7 +77,9 @@ export const Navbar: React.FC<NavbarProps> = ({ language, setLanguage, onOpenApp
           background: language === 'en' ? 'var(--gradient-primary)' : 'transparent',
           color: language === 'en' ? 'white' : 'var(--text-secondary)',
           fontWeight: 700,
-          transition: 'all var(--transition-fast)'
+          transition: 'all var(--transition-fast)',
+          whiteSpace: 'nowrap',
+          flexShrink: 0
         }}
       >
         EN
@@ -92,7 +95,9 @@ export const Navbar: React.FC<NavbarProps> = ({ language, setLanguage, onOpenApp
           background: language === 'mr' ? 'var(--gradient-primary)' : 'transparent',
           color: language === 'mr' ? 'white' : 'var(--text-secondary)',
           fontWeight: 700,
-          transition: 'all var(--transition-fast)'
+          transition: 'all var(--transition-fast)',
+          whiteSpace: 'nowrap',
+          flexShrink: 0
         }}
       >
         मराठी
@@ -135,8 +140,12 @@ export const Navbar: React.FC<NavbarProps> = ({ language, setLanguage, onOpenApp
               <Stethoscope size={22} />
             </div>
             <span style={{ letterSpacing: '-0.5px', display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
-              <span style={{ fontSize: '1.05rem', fontWeight: 800 }}>SVKM</span>
-              <span style={{ color: 'var(--med-blue)', fontWeight: 600, fontSize: '0.8rem', marginTop: '2px' }}>TMPM HOSPITAL</span>
+              <span style={{ fontSize: '1.05rem', fontWeight: 800 }} className="logo-text-main">
+                {t.hospitalName.split(' | ')[0] || ''}
+              </span>
+              <span style={{ color: 'var(--med-blue)', fontWeight: 600, fontSize: '0.8rem', marginTop: '2px' }} className="logo-text-sub">
+                {t.hospitalName.split(' | ')[1] || ''}
+              </span>
             </span>
           </a>
 
@@ -211,6 +220,14 @@ export const Navbar: React.FC<NavbarProps> = ({ language, setLanguage, onOpenApp
             }
             .mobile-toggle-wrapper {
               display: flex !important;
+            }
+          }
+          @media (max-width: 480px) {
+            .logo-text-main {
+              font-size: 0.95rem !important;
+            }
+            .logo-text-sub {
+              font-size: 0.72rem !important;
             }
           }
           .nav-link-item:hover {

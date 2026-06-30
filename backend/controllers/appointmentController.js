@@ -630,18 +630,18 @@ const getAppointmentPdf = async (req, res, next) => {
     doc.fillColor(primaryColor)
       .font('Poppins-Bold')
       .fontSize(17)
-      .text("SVKM'S TMPM HOSPITAL", { align: 'center' });
+      .text("YUG'S AAROGYASETU HOSPITAL", { align: 'center' });
 
     doc.fillColor('#0369a1')
       .font('Poppins-Bold')
       .fontSize(11)
-      .text("एस. व्ही. के. एम. चे टी. एम. पी. एम. रुग्णालय", { align: 'center' });
+      .text("युगचे आरोग्यसेतू रुग्णालय", { align: 'center' });
 
     doc.fillColor(secondaryTextColor)
       .font('Poppins-Regular')
       .fontSize(8)
-      .text("Kharde BK, Shirpur, District Dhule, Maharashtra - 425405", { align: 'center' })
-      .text("Phone: +91 99693 79023 / +91 2563 295550  |  Email: info.tmpmhospital@svkm.ac.in", { align: 'center' });
+      .text("Dahiwad, Tal. Shirpur, Dist. Dhule, Maharashtra - 425405", { align: 'center' })
+      .text("Phone: +91 99693 79023 / +91 2563 295550  |  Email: info@aarogyasetuhospital.com", { align: 'center' });
 
     doc.moveDown(0.3);
 
@@ -900,7 +900,7 @@ const getAppointmentPdf = async (req, res, next) => {
     doc.strokeColor(borderColor).lineWidth(1).moveTo(40, footerY).lineTo(555, footerY).stroke();
 
     doc.fillColor(primaryColor).font('Poppins-Bold').fontSize(9.5).text(
-      "SVKM'S TMPM HOSPITAL - Caring for Your Health, Always! / आपल्या आरोग्याची काळजी, सदैव!",
+      "YUG'S AAROGYASETU HOSPITAL - Caring for Your Health, Always! / आपल्या आरोग्याची काळजी, सदैव!",
       40,
       footerY + 10,
       { align: 'center', width: 515 }

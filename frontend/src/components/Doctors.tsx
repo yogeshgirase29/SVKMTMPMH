@@ -60,11 +60,11 @@ export const Doctors: React.FC<DoctorsProps> = ({ language }) => {
 
   const getDoctorEmail = (doc: any) => {
     const nameEn = doc.doctorName?.en || '';
-    if (nameEn.includes('Sarah Jenkins')) return 'mailto:ms@tmpmhospital.svkm.ac.in';
-    if (nameEn.includes('Robert Chen')) return 'mailto:radiology@tmpmhospital.svkm.ac.in';
-    if (nameEn.includes('Emily Taylor')) return 'mailto:pathology@tmpmhospital.svkm.ac.in';
-    if (nameEn.includes('Michael Stone')) return 'mailto:icu@tmpmhospital.svkm.ac.in';
-    return 'mailto:info.tmpmhospital@svkm.ac.in';
+    if (nameEn.includes('Sarah Jenkins')) return 'mailto:ms@aarogyasetuhospital.com';
+    if (nameEn.includes('Robert Chen')) return 'mailto:radiology@aarogyasetuhospital.com';
+    if (nameEn.includes('Emily Taylor')) return 'mailto:pathology@aarogyasetuhospital.com';
+    if (nameEn.includes('Michael Stone')) return 'mailto:icu@aarogyasetuhospital.com';
+    return 'mailto:info@aarogyasetuhospital.com';
   };
 
   return (

@@ -495,7 +495,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                       <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.firstName}</label>
                       <input
                         type="text"
-                        placeholder="John"
+                        placeholder="Yogesh"
                         {...register('firstName', {
                           required: "First name is required",
                           minLength: { value: 2, message: "Min 2 chars" },
@@ -517,7 +517,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                       <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.middleName}</label>
                       <input
                         type="text"
-                        placeholder="Robert"
+                        placeholder="Udesing"
                         {...register('middleName', {
                           maxLength: { value: 50, message: "Max 50 chars" },
                           pattern: { value: /^[a-zA-Z\s]*$/, message: "Alphabets only" }
@@ -537,7 +537,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                       <label style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>{lt.lastName}</label>
                       <input
                         type="text"
-                        placeholder="Doe"
+                        placeholder="Girase"
                         {...register('lastName', {
                           required: "Last name is required",
                           minLength: { value: 2, message: "Min 2 chars" },
@@ -668,7 +668,7 @@ export const AppointmentModal: React.FC<ModalProps> = ({ isOpen, onClose, langua
                         <Mail size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                         <input
                           type="text"
-                          placeholder="john@example.com"
+                          placeholder="yogesh.girase@example.com"
                           {...register('email', {
                             pattern: { value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, message: "Invalid email format" }
                           })}
@@ -1647,9 +1647,9 @@ export const printVoucher = (app: any, language: Language = 'en') => {
       <body>
         <div class="voucher-container">
           <div class="header">
-            <div class="logo">SVKM'S TMPM HOSPITAL</div>
-            <div class="logo-mr">एस. व्ही. के. एम. चे टी. एम. पी. एम. रुग्णालय</div>
-            <div class="subtitle">Kharde BK, Shirpur, District Dhule, Maharashtra - 425405<br>Phone: +91 99693 79023 / +91 2563 295550  |  Email: info.tmpmhospital@svkm.ac.in</div>
+            <div class="logo">YUG'S AAROGYASETU HOSPITAL</div>
+            <div class="logo-mr">युगचे आरोग्यसेतू रुग्णालय</div>
+            <div class="subtitle">Dahiwad, Tal. Shirpur, Dist. Dhule, Maharashtra - 425405<br>Phone: +91 99693 79023 / +91 2563 295550  |  Email: info@aarogyasetuhospital.com</div>
           </div>
           
           <div class="title">${titleText.toUpperCase()}</div>
@@ -1753,7 +1753,7 @@ export const printVoucher = (app: any, language: Language = 'en') => {
           </div>
           
           <div class="footer">
-            SVKM'S TMPM HOSPITAL - Caring for Your Health, Always! / आपल्या आरोग्याची काळजी, सदैव!
+            YUG'S AAROGYASETU HOSPITAL - Caring for Your Health, Always! / आपल्या आरोग्याची काळजी, सदैव!
           </div>
         </div>
         <button class="btn-print" onclick="window.print()">${printBtnText}</button>

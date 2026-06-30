@@ -66,7 +66,7 @@ export const WhyChooseUs: React.FC<WhyChooseUsProps> = ({ language }) => {
         {/* Features Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: '24px'
         }} className="why-us-grid">
           {features.map((feature, index) => {

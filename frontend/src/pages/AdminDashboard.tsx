@@ -3005,7 +3005,7 @@ const AdminDashboard: React.FC = () => {
                 <input 
                   type="text" 
                   required
-                  placeholder="e.g. John Doe"
+                  placeholder="e.g. Yogesh Udesing Girase"
                   value={testimonialForm.patientName}
                   onChange={e => setTestimonialForm({ ...testimonialForm, patientName: e.target.value })}
                   style={{ padding: '10px 12px', border: '1px solid var(--border-muted)', borderRadius: '8px', fontSize: '0.9rem' }}

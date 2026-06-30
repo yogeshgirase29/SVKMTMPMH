@@ -62,7 +62,7 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
 
             {/* Headline */}
             <h1 style={{
-              fontSize: '3.3rem',
+              fontSize: 'clamp(2.0rem, 5.2vw, 3.3rem)',
               color: 'var(--primary)',
               fontWeight: 800,
               lineHeight: 1.15,
@@ -127,7 +127,7 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
               borderRadius: 'var(--radius-xl)',
               background: 'radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 70%)',
               padding: '12px'
-            }}>
+            }} className="hero-graphics-wrapper">
               {/* Doctor Main Image */}
               <div style={{
                 width: '100%',
@@ -137,7 +137,7 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
                 boxShadow: 'var(--shadow-xl)',
                 border: '1px solid rgba(255,255,255,0.7)',
                 position: 'relative'
-              }}>
+              }} className="hero-doctor-img-container">
                 <img
                   src="https://res.cloudinary.com/dqhvevsha/image/upload/v1782154893/hospital-doctors/oifzozs7tt7klolfopk6.jpg"
                   alt="Specialist Doctor Consulting"
@@ -162,7 +162,7 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
               <motion.div
                 animate={{ y: [0, -10, 0] }}
                 transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-                className="glass-panel"
+                className="glass-panel hero-float-widget-1"
                 style={{
                   position: 'absolute',
                   top: '15%',
@@ -196,7 +196,7 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
               <motion.div
                 animate={{ y: [0, 10, 0] }}
                 transition={{ repeat: Infinity, duration: 4.5, ease: "easeInOut", delay: 0.5 }}
-                className="glass-panel"
+                className="glass-panel hero-float-widget-2"
                 style={{
                   position: 'absolute',
                   bottom: '12%',
@@ -232,14 +232,19 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
 
       {/* Global CSS adjustments for Hero responsive sizing */}
       <style>{`
+        @media (max-width: 1200px) {
+          .hero-float-widget-1 {
+            left: -5% !important;
+          }
+          .hero-float-widget-2 {
+            right: -5% !important;
+          }
+        }
         @media (max-width: 991px) {
           .hero-grid {
             grid-template-columns: 1fr !important;
             gap: 40px !important;
             text-align: center;
-          }
-          .hero-headline {
-            font-size: 2.3rem !important;
           }
           .hero-btns, .hero-benefits {
             justify-content: center !important;
@@ -250,10 +255,41 @@ export const Hero: React.FC<HeroProps> = ({ language, onOpenAppointment }) => {
           .hero-graphics-container {
             margin-top: 24px;
           }
+          .hero-float-widget-1 {
+            left: 5% !important;
+          }
+          .hero-float-widget-2 {
+            right: 5% !important;
+          }
         }
         @media (max-width: 576px) {
-          .hero-headline {
-            font-size: 1.95rem !important;
+          .hero-graphics-wrapper {
+            display: flex !important;
+            flex-direction: column !important;
+            aspect-ratio: auto !important;
+            height: auto !important;
+            padding: 0px !important;
+            background: none !important;
+          }
+          .hero-doctor-img-container {
+            height: 300px !important;
+            width: 100% !important;
+            aspect-ratio: auto !important;
+            margin-bottom: 12px !important;
+          }
+          .hero-float-widget-1, .hero-float-widget-2 {
+            position: relative !important;
+            left: auto !important;
+            right: auto !important;
+            top: auto !important;
+            bottom: auto !important;
+            width: 100% !important;
+            transform: none !important;
+            margin-bottom: 10px !important;
+            box-shadow: var(--shadow-sm) !important;
+          }
+          .hero-float-widget-2 {
+            margin-bottom: 0 !important;
           }
           .glass-panel {
             padding: 10px 14px !important;

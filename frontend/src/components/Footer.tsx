@@ -86,8 +86,12 @@ export const Footer: React.FC<FooterProps> = ({ language }) => {
                 <Stethoscope size={20} />
               </div>
               <span style={{ letterSpacing: '-0.5px', display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
-                <span style={{ fontSize: '1.05rem', fontWeight: 800 }}>SVKM</span>
-                <span style={{ color: 'var(--cyan)', fontWeight: 600, fontSize: '0.8rem', marginTop: '2px' }}>TMPM HOSPITAL</span>
+                <span style={{ fontSize: '1.05rem', fontWeight: 800 }} className="logo-text-main">
+                  {t.hospitalName.split(' | ')[0] || ''}
+                </span>
+                <span style={{ color: 'var(--cyan)', fontWeight: 600, fontSize: '0.8rem', marginTop: '2px' }} className="logo-text-sub">
+                  {t.hospitalName.split(' | ')[1] || ''}
+                </span>
               </span>
             </a>
             <p style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
